@@ -85,14 +85,14 @@ def _lockups(d):
             continue
         acc = s.get("accessibilityText") or ""
         m = re.match(r"(.*), 조회수 ([^ ]+?)회? - Shorts", acc, re.S)
-        out.append({"id": ep.get("videoId"), "title": m.group(1) if m else acc})
+        out.append({"id": ep.get("videoId"), "title": m.group(1) if m else acc, "v": num(m.group(2)) if m else None})
     return out
 
 
 def _videos(d):
     out = []
     for v in walk(d, "videoRenderer"):
-        out.append({"id": v.get("videoId"), "title": text(v.get("title"))})
+        out.append({"id": v.get("videoId"), "title": text(v.get("title")), "v": num(text(v.get("viewCountText")))})
     return out
 
 
@@ -135,7 +135,7 @@ def hashtag_page(tag):
        머리의 '동영상 403개 • 채널 138개' 와, 아래 쇼츠 칸(인기 쇼츠가 많이 뜸 — 검색에 안 잡힌 1,000만+ 도 여기서 나옴)"""
     h = fetch("https://www.youtube.com/hashtag/" + urllib.parse.quote(tag) + "/shorts?hl=ko&gl=KR")
     d = initial_data(h)
-    ids = [x["id"] for x in _lockups(d) + _videos(d)] if d else []
+    ids = (_lockups(d) + _videos(d)) if d else []  # [{id, title, v(긁은 조회수)}]
     for s in re.findall(r'"content":"([^"]*동영상[^"]*)"', h):
         m = re.search(r"동영상\s*([\d.,]+\s*[만천]?)개(?:\s*•\s*채널\s*([\d.,]+\s*[만천]?)개)?", s)
         if m:

@@ -8,7 +8,7 @@
 import os, re, sys, json, time, argparse, urllib.request
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone, timedelta
-import yt, lock, actors
+import yt, lock, actors, discover
 
 if sys.stdout:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -136,38 +136,69 @@ def risk_of(w, chans):
 
 # ── 한 작품 재기 ─────────────────────────────────────────
 def scan_work(w, key, mode, log, prev=None):
+    """검색·최근 업로드·#해시태그 화면에서 쇼츠를 모아 이 작품 것만 남긴다.
+       키 아끼기: 전에 본 영상(맞은 것 v · 아닌 것 no)은 다시 묻지 않고, 조회수는 긁은 화면 숫자로 올린다.
+       일주일에 한 번만 전에 찾은 10만+(최대 50개)를 API 로 다시 확인 — 정확한 조회수, 지워진 건 빠짐.
+       검색은 매번 일부만 보여 줘서, 맞은 쇼츠는 버리지 않고 이어 센다."""
+    now = now_min()
+    sig = norm("|".join(w["names"]) + "|" + w["q"])
+    if (prev or {}).get("sig") != sig:
+        prev = {}  # 작품 이름·검색어가 바뀌면 처음부터
     if mode == "scrape":
         r = yt.search(w["q"], pages=2, sleep=RUN["sleep_sec"])
-        src = [(x["id"], "s") for x in r["shorts"]] + [(x["id"], "r") for x in r["recent"]]
+        src = r["shorts"] + r["recent"]
     else:
-        src = [(x["id"], "s") for x in yt.api_search(w["q"].lstrip("#"), key, "viewCount")] + \
-              [(x["id"], "r") for x in yt.api_search(w["q"].lstrip("#"), key, "date")]
-    ht, ht_ids = (None, None), []
+        src = yt.api_search(w["q"].lstrip("#"), key, "viewCount") + yt.api_search(w["q"].lstrip("#"), key, "date")
+    ht = [None, None]
     if mode == "scrape" and w["ht_ok"]:
         time.sleep(RUN["sleep_sec"])
-        *ht, ht_ids = yt.hashtag_page(w["tag"])
-    # 검색은 매번 일부만 보여 줘서, 전에 찾은 10만+ 쇼츠(최대 50개)도 다시 확인해 이어 센다 — 지워진 건 API 에서 안 나와 저절로 빠짐
-    old = [v[0] for v in (prev or {}).get("v", []) if v[4] >= 100000][:50]
-    ids = list(dict.fromkeys(i for i in [i for i, _ in src] + ht_ids + old if i))
-    meta = yt.videos(ids, key)
+        *ht, more = yt.hashtag_page(w["tag"])
+        src += more
+    seen_v = {}
+    for x in src:
+        if x.get("id") and x.get("v"):
+            seen_v[x["id"]] = max(seen_v.get(x["id"], 0), x["v"])
+    found = list(dict.fromkeys(x["id"] for x in src if x.get("id")))
+    known = {v[0]: v for v in prev.get("v", [])}
+    no = dict.fromkeys(prev.get("no", []))
+    new = [i for i in found if i not in known and i not in no]
+    refresh = now - prev.get("rf", 0) >= 7 * 1440 and known
+    again = [v[0] for v in prev.get("v", []) if v[4] >= 100000][:50] if refresh else []
+    ask = new + again
+    meta = yt.videos(ask, key) if ask else {}
     ok = matcher(w)
-    vids, off_ch, seen = [], set(), 0
-    for i in ids:
+    vids, off_ch = {}, set(prev.get("off", []))
+    for i, v in known.items():
+        if i in again and i not in meta:
+            continue  # 지워졌거나 비공개
+        v = list(v)
+        if i in meta:
+            v[4] = meta[i]["v"]
+        elif i in seen_v:
+            v[4] = max(v[4], seen_v[i])  # 긁은 숫자는 '12만'처럼 반올림이라 큰 쪽
+        vids[i] = v
+    for i in new:
         m = meta.get(i)
         if not m:
+            no[i] = None
             continue
-        seen += 1
         if not ok(m["t"], m["desc"], m["tags"]):
+            no[i] = None
             continue
         off = bool(OFFICIAL.search(m["ch"]))
         if off:
             off_ch.add(m["ch"])
         if not m["dur"] or m["dur"] > 180:
+            no[i] = None
             continue
-        vids.append([i, m["t"][:90], m["ch"], m["cid"], m["v"], m["pub"][:19], int(off)])
-    vids.sort(key=lambda v: -v[4])
-    return {"at": now_min(), "mode": mode, "seen": seen, "units": (len(ids) + 49) // 50 + (200 if mode == "api" else 0),
-            "ht": list(ht), "off": sorted(off_ch)[:8], "v": vids[:120]}
+        vids[i] = [i, m["t"][:60], m["ch"], m["cid"], m["v"], m["pub"][:19], int(off)]
+    # 기록이 커지지 않게: 10만+ 위쪽 60개 + 최근 60일 40개
+    vs = sorted(vids.values(), key=lambda v: -v[4])
+    keep = vs[:60] + [v for v in vs[60:] if (age_days(v[5], now) or 999) <= R["recent_days"]][:40]
+    calls = (len(ask) + 49) // 50
+    return {"at": now, "mode": mode, "seen": len(found), "units": calls + (200 if mode == "api" else 0), "sig": sig,
+            "rf": now if (refresh or not prev.get("rf")) else prev["rf"],
+            "ht": list(ht), "off": sorted(off_ch)[:8], "v": keep, "no": list(no)[-500:]}
 
 
 def judge(w, rec, now):
@@ -315,7 +346,8 @@ def actor_view(ac, ids, J, today):
 def build(st, works, iss, mode_note, errs, film_ids=None):
     now = now_min()
     J = {w["i"]: dict(judge(w, st["works"].get(w["i"]), now),
-                      **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")}, auto=bool(w.get("auto")))
+                      **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")},
+                      auto="disc" if w.get("auto") == "disc" else "actor" if w.get("auto") else "")
          for w in works}
     for w in works:
         j = J[w["i"]]
@@ -424,11 +456,36 @@ def main():
             st["err"].append(f"{today} 배우 타이밍: {type(e).__name__} {e}"[:200])
             log(f"배우 타이밍 못 받음: {e}")
     base = load_works()
-    extra, ids = auto_works(st.get("actors"), base)
-    works = base + extra
-    every = lambda w: (AC["rescan_hours"] if w.get("auto") else RUN["rescan_hours"]) * 60
-    stale = sorted((w for w in works if a.all or now - st["works"].get(w["i"], {}).get("at", 0) >= every(w)),
-                   key=lambda w: (st["works"].get(w["i"], {}).get("at", 0), not w.get("auto")))  # 같으면 배우 타이밍 먼저(때가 있음)
+    # 작품 늘리기: 위키백과 후보(한 달에 한 번) → #제목 쇼츠 화면으로 거르기(키 안 씀, 회차마다 몇 분) → 큰 쇼츠 있는 것만 작품으로
+    DC = CFG.get("discover")
+    dw = []
+    if DC:
+        d = st.setdefault("disc", {})
+        for k in ("cand", "seen", "dist"):
+            d.setdefault(k, {})
+        try:
+            if now - d.get("m", 0) >= DC["refresh_days"] * 1440:
+                d["cand"], d["m"] = discover.candidates(DC, log, kst(now).date()), now
+            discover.screen(st, DC, {w["tag"] for w in base}, DC["screen_minutes"], log)
+            discover.fill_dist(st, [x["key"] for x in discover.works(st, DC)], log)
+        except Exception as e:
+            st["err"].append(f"{today} 작품 늘리기: {type(e).__name__} {e}"[:200])
+            log(f"작품 늘리기 못 함: {e}")
+        have = {w["i"] for w in base}
+        for x in discover.works(st, DC):
+            i = norm(x["n"])
+            if not i or i in have:
+                continue
+            have.add(i)
+            al = re.split(r"\s*[(:：\-–]", x["n"])[0].strip()
+            dw.append({"i": i, "n": x["n"], "g": x["g"], "k": x["k"], "d": x["d"] or "?", "y": x["y"], "tag": x["tag"],
+                       "q": x["q"], "ht_ok": " " not in x["q"], "auto": "disc",
+                       "names": [x["n"], x["tag"]] + ([al] if al != x["n"] and len(norm(al)) >= 3 else [])})
+    extra, ids = auto_works(st.get("actors"), base + dw)
+    works = base + dw + extra
+    order = {True: 0, "disc": 2}  # 같은 때면 배우 타이밍(때가 있음) → 고른 작품 → 자동 발굴
+    stale = sorted((w for w in works if a.all or now - st["works"].get(w["i"], {}).get("at", 0) >= RUN["rescan_hours"] * 60),
+                   key=lambda w: (st["works"].get(w["i"], {}).get("at", 0), order.get(w.get("auto"), 1)))
     if a.limit:
         stale = stale[:a.limit]
     elif st["works"]:
@@ -443,6 +500,9 @@ def main():
             break
         if mode == "api" and st["units"].get(today, 0) + 202 > 6000:
             log("오늘 API 검색 몫(6,000유닛)을 다 씀 → 다음 회차에")
+            break
+        if st["units"].get(today, 0) >= RUN["unit_budget"]:
+            log(f"오늘 유튜브 키 몫({RUN['unit_budget']:,}유닛)을 다 씀 → 내일 이어서 (오늘의 흐름·채널 레이더 몫 남겨 둠)")
             break
         try:
             rec = scan_work(w, key, mode, log, st["works"].get(w["i"]))

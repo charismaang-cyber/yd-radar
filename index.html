@@ -33,7 +33,7 @@
 .s-busy{background:var(--busy)}.s-weak,.s-few{background:var(--weak)}.s-none{background:transparent;color:var(--ink3);border:1px dashed var(--line)}
 .r{background:transparent;border:1px solid currentColor}
 .r-낮음{color:var(--honey)}.r-중간{color:var(--revive)}.r-높음{color:var(--hot)}.r-방송{color:#8b6fd6}.r-\?{color:var(--ink3)}
-.tg.act{background:#8b6fd6}
+.tg.act{background:#8b6fd6}.tg.disc{background:#4f8a8b}
 .acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:14px;padding-top:14px}
 .ac{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px}
 .ac.now{border-color:var(--hot)}
@@ -237,7 +237,7 @@ td .w{font-weight:700}
     <div class="sec-h" id="season"><div><span class="eyebrow">SEASON · ISSUE</span><h2>시즌·이슈</h2></div><div class="at">라필: 삼일절·광복절엔 일제강점기, 추석엔 고부갈등 · 이슈는 오늘의 흐름 구글 트렌드</div></div>
     <section class="card panel"><div class="seas" id="seasons"></div><div id="issues"></div></section>
 
-    <div class="sec-h" id="all"><div><span class="eyebrow">ALL WORKS</span><h2>작품 전체<em id="cAll"></em></h2></div><div class="at">제목 줄을 누르면 정렬 · 작품 목록은 저장소 works.txt</div></div>
+    <div class="sec-h" id="all"><div><span class="eyebrow">ALL WORKS</span><h2>작품 전체<em id="cAll"></em></h2></div><div class="at">제목 줄을 누르면 정렬 · 고른 작품(works.txt) + 배우 타이밍 + 자동 발굴(위키백과 후보 중 큰 쇼츠 있는 것)</div></div>
     <section class="card panel"><div class="tbl-wrap"><table id="tbl"></table></div></section>
 
     <div class="sec-h" id="chan"><div><span class="eyebrow">ANSWER CHANNELS · FEED</span><h2>정답지 채널 · 소재 피드</h2></div><div class="at">100만+ 쇼츠를 낸 채널을 자동으로 모아 지켜봄</div></div>
@@ -278,7 +278,7 @@ const stTag = st => `<span class="tg s-${ST[st][0]}" title="${esc(ST[st][1])}">$
 const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
 // 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
 const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
-const tagsOf = w => stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"");
+const tagsOf = w => stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"")+(w.auto==="disc"?' <span class="tg disc" title="위키백과 한국 영화·OTT 드라마 후보 중 #제목 쇼츠 화면에 50만+ 쇼츠가 있어 저절로 올라온 작품 (결은 위키백과 분류로 짐작)">자동 발굴</span>':"");
 
 let D = null, W = {}, opt = {bc:false, noRisk:false, q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
