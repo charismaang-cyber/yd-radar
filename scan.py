@@ -7,8 +7,8 @@
    비밀번호: 환경변수 RADAR_PASSWORD → 없으면 password.txt / 유튜브 키: YOUTUBE_API_KEY → 없으면 youtube_key.txt (둘 다 저장소에 안 올림)"""
 import os, re, sys, json, time, argparse, urllib.request
 from collections import Counter, defaultdict
-from datetime import datetime, timezone, timedelta
-import yt, lock
+from datetime import date, datetime, timezone, timedelta
+import yt, lock, actors
 
 if sys.stdout:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -65,6 +65,35 @@ def load_works():
     return out
 
 
+def auto_works(ac, base):
+    """배우 타이밍으로 찾은 지난 영화 → 작품 목록에 보탬(결 '배우 타이밍'). works.txt 에 이미 있으면 그걸 가리킨다.
+       돌려주는 것: (새 작품들, 위키 제목 → 작품 id)"""
+    if not ac:
+        return [], {}
+    have = {norm(n): w["i"] for w in base for n in w["names"][:2] if norm(n)}
+    who = defaultdict(list)
+    for t in ac.get("titles", []):
+        for l in t["leads"]:
+            for f in l["films"]:
+                who[f].append(l["n"])
+    out, ids = [], {}
+    for f, info in ac.get("films", {}).items():
+        nn = norm(info["n"])
+        if not nn:
+            continue
+        if nn in have:
+            ids[f] = have[nn]
+            continue
+        tag = re.sub(r"[^0-9A-Za-z가-힣_]", "", info["n"])
+        al = re.split(r"\s*[(:：\-–]", info["n"])[0].strip()
+        q = "#" + tag if len(nn) >= 3 else f"#{tag} {who[f][0] if who[f] else ''}".strip()  # 짧은 제목은 배우 이름이 같이 보여야 인정
+        out.append({"i": nn, "n": info["n"], "g": "배우 타이밍", "k": "영화", "d": info["d"] or "?", "y": str(info["y"]),
+                    "tag": tag, "q": q, "ht_ok": " " not in q, "auto": True,
+                    "names": [info["n"], tag] + ([al] if al != info["n"] and len(norm(al)) >= 3 else [])})
+        have[nn] = ids[f] = nn
+    return out, ids
+
+
 def matcher(w):
     keys = []
     for nm in w["names"]:
@@ -106,18 +135,20 @@ def risk_of(w, chans):
 
 
 # ── 한 작품 재기 ─────────────────────────────────────────
-def scan_work(w, key, mode, log):
+def scan_work(w, key, mode, log, prev=None):
     if mode == "scrape":
         r = yt.search(w["q"], pages=2, sleep=RUN["sleep_sec"])
         src = [(x["id"], "s") for x in r["shorts"]] + [(x["id"], "r") for x in r["recent"]]
     else:
         src = [(x["id"], "s") for x in yt.api_search(w["q"].lstrip("#"), key, "viewCount")] + \
               [(x["id"], "r") for x in yt.api_search(w["q"].lstrip("#"), key, "date")]
-    ht = (None, None)
+    ht, ht_ids = (None, None), []
     if mode == "scrape" and w["ht_ok"]:
         time.sleep(RUN["sleep_sec"])
-        ht = yt.hashtag_count(w["tag"])
-    ids = list(dict.fromkeys(i for i, _ in src if i))
+        *ht, ht_ids = yt.hashtag_page(w["tag"])
+    # 검색은 매번 일부만 보여 줘서, 전에 찾은 10만+ 쇼츠(최대 50개)도 다시 확인해 이어 센다 — 지워진 건 API 에서 안 나와 저절로 빠짐
+    old = [v[0] for v in (prev or {}).get("v", []) if v[4] >= 100000][:50]
+    ids = list(dict.fromkeys(i for i in [i for i, _ in src] + ht_ids + old if i))
     meta = yt.videos(ids, key)
     ok = matcher(w)
     vids, off_ch, seen = [], set(), 0
@@ -261,10 +292,30 @@ def issues(works, log):
     return out
 
 
-def build(st, works, iss, mode_note, errs):
+def actor_view(ac, ids, J, today):
+    """배우 타이밍: 끝나지 않은 드라마·영화마다 주연과 그 지난 영화(작품 id). 작품에도 어느 배우·작품 덕인지 붙인다."""
+    out = []
+    for t in (ac or {}).get("titles", []):
+        s, e = date.fromisoformat(t["start"]), date.fromisoformat(t["end"])
+        if e < today:
+            continue
+        d = (s - today).days
+        leads = [{"n": l["n"], "w": list(dict.fromkeys(ids[f] for f in l["films"] if ids.get(f) in J))} for l in t["leads"]]
+        leads = [l for l in leads if l["w"]]
+        if not leads:
+            continue
+        out.append({k: t[k] for k in ("n", "kind", "ch", "ott", "start", "end", "est")} | {"d": d, "leads": leads})
+        when = f"D-{d}" if d > 0 else "D-DAY" if d == 0 else f"{-d // 7 + 1}주차"
+        for l in leads:
+            for i in l["w"]:
+                J[i].setdefault("act", []).append(f"{l['n']} «{t['n']}» {when}")
+    return sorted(out, key=lambda x: x["start"])
+
+
+def build(st, works, iss, mode_note, errs, film_ids=None):
     now = now_min()
     J = {w["i"]: dict(judge(w, st["works"].get(w["i"]), now),
-                      **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")})
+                      **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")}, auto=bool(w.get("auto")))
          for w in works}
     for w in works:
         j = J[w["i"]]
@@ -324,8 +375,10 @@ def build(st, works, iss, mode_note, errs):
                      "works": sorted({J[wi]["n"] for wi in chan_works.get(c, ()) if wi in J})[:8]}
                     for c, v in st.get("watch", {}).items()), key=lambda x: -x["n100"])
     today = kst(now).date()
+    act = actor_view(st.get("actors"), film_ids or {}, J, today)
     return {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "mode": mode_note, "err": errs[-12:], "rule": R,
             "works": list(J.values()), "hot": hot, "feed": sorted(feed, key=lambda r: -r["v"])[:60],
+            "actors": act, "actors_at": (st.get("actors") or {}).get("at"),
             "gyeol": gy, "seasons": season_list(today), "channels": chans,
             "scanned": sum(1 for w in works if w["i"] in st["works"]), "total": len(works),
             "units": st["units"].get(today.isoformat(), 0)}
@@ -362,10 +415,20 @@ def main():
     for k in ("works", "rss", "watch", "units"):
         st.setdefault(k, {})
     st.setdefault("err", [])
-    works = load_works()
     now, today = now_min(), kst(now_min()).date().isoformat()
-    stale = sorted((w for w in works if a.all or now - st["works"].get(w["i"], {}).get("at", 0) >= RUN["rescan_hours"] * 60),
-                   key=lambda w: st["works"].get(w["i"], {}).get("at", 0))
+    AC = CFG.get("actors")
+    if AC and now - (st.get("actors") or {}).get("m", 0) >= AC["refresh_hours"] * 60:
+        try:
+            st["actors"] = dict(actors.refresh(AC, log, kst(now).date()), m=now)
+        except Exception as e:
+            st["err"].append(f"{today} 배우 타이밍: {type(e).__name__} {e}"[:200])
+            log(f"배우 타이밍 못 받음: {e}")
+    base = load_works()
+    extra, ids = auto_works(st.get("actors"), base)
+    works = base + extra
+    every = lambda w: (AC["rescan_hours"] if w.get("auto") else RUN["rescan_hours"]) * 60
+    stale = sorted((w for w in works if a.all or now - st["works"].get(w["i"], {}).get("at", 0) >= every(w)),
+                   key=lambda w: (st["works"].get(w["i"], {}).get("at", 0), not w.get("auto")))  # 같으면 배우 타이밍 먼저(때가 있음)
     if a.limit:
         stale = stale[:a.limit]
     elif st["works"]:
@@ -382,7 +445,7 @@ def main():
             log("오늘 API 검색 몫(6,000유닛)을 다 씀 → 다음 회차에")
             break
         try:
-            rec = scan_work(w, key, mode, log)
+            rec = scan_work(w, key, mode, log, st["works"].get(w["i"]))
             blocks = 0
         except yt.Blocked as e:
             blocks += 1
@@ -411,7 +474,7 @@ def main():
     st["units"] = dict(sorted(st["units"].items())[-10:])
     st["err"] = st["err"][-40:]
     note = "긁기" if mode == "scrape" else "API 검색 (긁기 막힘)"
-    data = build(st, works, issues(works, log), note, st["err"])
+    data = build(st, works, issues(base, log), note, st["err"], ids)
     for path, body in ((sp, json.dumps(lock.seal(st, pw))),
                        (os.path.join(a.out, "data.enc.js"), "window.YD_BOX = " + json.dumps(lock.seal(data, pw)) + ";\n"),
                        (os.path.join(a.out, "status.json"), json.dumps({"at": data["at"], "mode": note, "done": done,

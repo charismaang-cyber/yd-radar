@@ -33,6 +33,22 @@
 .s-busy{background:var(--busy)}.s-weak,.s-few{background:var(--weak)}.s-none{background:transparent;color:var(--ink3);border:1px dashed var(--line)}
 .r{background:transparent;border:1px solid currentColor}
 .r-낮음{color:var(--honey)}.r-중간{color:var(--revive)}.r-높음{color:var(--hot)}.r-방송{color:#8b6fd6}.r-\?{color:var(--ink3)}
+.tg.act{background:#8b6fd6}
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:14px;padding-top:14px}
+.ac{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px}
+.ac.now{border-color:var(--hot)}
+.ac .ah{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ac .dd{font-family:"Cormorant Garamond",serif;font-size:24px;font-weight:600;color:var(--accent);line-height:1}
+.ac.now .dd{color:var(--hot)}
+.ac .n{font-weight:800;font-size:15px}
+.ac .m{font-size:11.5px;color:var(--ink3)}
+.ac .ph{font-size:11.5px;font-weight:700;color:var(--hot)}
+.al{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;padding:8px 0 0;margin-top:8px;border-top:1px solid var(--line)}
+.al .an{font-weight:700;font-size:13px;padding-top:3px;overflow-wrap:anywhere}
+.al .aw{display:flex;flex-wrap:wrap;gap:6px}
+.aw1{border:1px solid var(--line);background:transparent;border-radius:10px;padding:4px 8px;font:inherit;font-size:12.5px;color:inherit;cursor:pointer;text-align:left;display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap}
+.aw1:hover{border-color:var(--accent)}
+.aw1 small{color:var(--ink3);font-size:11px}
 .tg.iss{background:#4a7fc9}.tg.beg{background:transparent;color:var(--accent);border:1px solid var(--accent)}
 
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;padding-top:14px}
@@ -161,6 +177,7 @@ td .w{font-weight:700}
     <nav class="nav">
       <a href="#today">◎ 오늘 뭐 만들까 <span class="cnt" id="nToday"></span></a>
       <a href="#hot">✦ 막 뜨는 작품 <span class="cnt" id="nHot"></span></a>
+      <a href="#actor">★ 배우 타이밍 <span class="cnt" id="nAct"></span></a>
       <a href="#map">◈ 결 지도</a>
       <a href="#season">◔ 시즌·이슈</a>
       <a href="#all">☰ 작품 전체 <span class="cnt" id="nAll"></span></a>
@@ -207,6 +224,9 @@ td .w{font-weight:700}
 
     <div class="sec-h" id="hot"><div><span class="eyebrow">RISING + RELATED</span><h2>막 뜨는 작품 + 연관 꿀통<em id="cHot"></em></h2></div><div class="at">최근 3일 10만+ · 감시 채널 RSS + 작품 검색</div></div>
     <section class="card panel"><div id="hotList"></div></section>
+
+    <div class="sec-h" id="actor"><div><span class="eyebrow">ACTOR TIMING</span><h2>배우 타이밍<em id="cAct"></em></h2></div><div class="at" id="actAt">곧 시작하거나 방영·상영 중인 드라마(TV·OTT)·영화 주연의 지난 영화 · 첫 공개 1주 전 ~ 3주차가 제때</div></div>
+    <section class="card panel"><div class="bar" id="actChips"></div><div class="acts" id="actList"></div><button class="more hidden" id="actMore">더 보기</button></section>
 
     <div class="sec-h" id="map"><div><span class="eyebrow">GYEOL MAP</span><h2>결 지도</h2></div><div class="at">라필: 결 맞추기가 90% · 같은 결 3편 이상 정해 두고 시작</div></div>
     <section class="card panel sparkle">
@@ -258,11 +278,11 @@ const stTag = st => `<span class="tg s-${ST[st][0]}" title="${esc(ST[st][1])}">$
 const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
 // 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
 const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
-const tagsOf = w => stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"");
+const tagsOf = w => stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"");
 
 let D = null, W = {}, opt = {bc:false, noRisk:false, q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
-const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:opt.bc,noRisk:opt.noRisk,side:opt.side,good:opt.good})); }catch(e){} };
+const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:opt.bc,noRisk:opt.noRisk,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt})); }catch(e){} };
 const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.q || (w.n+w.tag+w.g).toLowerCase().includes(opt.q.toLowerCase()));
 const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
 
@@ -314,7 +334,35 @@ function draw(){
     ["경쟁 중", cnt("경쟁 중"), "busy"], ["정답지 채널", D.channels.length, ""], ["잰 작품", D.scanned, ""]];
   $("#tiles").innerHTML = tiles.map(([n,v,c]) => `<div class="card tile"><div class="nm">${n}</div><div class="px" style="${c?`color:var(--${c})`:""}">${v}</div></div>`).join("");
   $("#nToday").textContent = good.length; $("#nHot").textContent = D.hot.length || ""; $("#nAll").textContent = D.total; $("#nChan").textContent = D.channels.length;
-  drawToday(good); drawHot(); drawMap(); drawSeason(); drawTable(); drawChan();
+  drawToday(good); drawHot(); drawActor(); drawMap(); drawSeason(); drawTable(); drawChan();
+}
+// 배우 타이밍: 첫 공개 7일 전 ~ 3주차가 제때 → 제때인 것, 그다음 꿀통 많은 것 먼저
+let actN = 12;
+function drawActor(){
+  const A = D.actors || [], good = w => w.st==="꿀통" || w.st==="심정지 재진입";
+  let ts = A.map(t => ({...t, leads: t.leads.map(l => ({n: l.n, ws: l.w.map(i=>W[i]).filter(w => w && vis(w)).sort(byGood)})).filter(l => l.ws.length)}))
+    .filter(t => t.leads.length);
+  const nGood = t => t.leads.reduce((s,l) => s + l.ws.filter(good).length, 0), prime = t => t.d <= 7 && t.d >= -21;
+  if(opt.actGood) ts = ts.filter(t => nGood(t) > 0);
+  if(opt.actOtt) ts = ts.filter(t => t.ott);
+  ts.sort((a,b) => prime(b)-prime(a) || nGood(b)-nGood(a) || Math.abs(a.d)-Math.abs(b.d));
+  $("#cAct").textContent = ts.length; $("#nAct").textContent = A.length || "";
+  $("#actAt").textContent = `곧 시작하거나 방영·상영 중인 드라마(TV·OTT)·영화 주연의 지난 한국 영화 · 첫 공개 1주 전 ~ 3주차가 제때 · 위키백과 ${D.actors_at||"—"}`;
+  $("#actChips").innerHTML = `<button class="chip ${opt.actGood?"on":""}" id="actGood">꿀통 있는 것만</button><button class="chip ${opt.actOtt?"on":""}" id="actOtt">OTT만</button>`;
+  $("#actGood").onclick = () => { opt.actGood = !opt.actGood; saveOpt(); drawActor(); };
+  $("#actOtt").onclick = () => { opt.actOtt = !opt.actOtt; saveOpt(); drawActor(); };
+  $("#actList").innerHTML = ts.length ? ts.slice(0, actN).map(t => {
+    const dd = t.d > 0 ? "D-"+t.d : t.d === 0 ? "D-DAY" : `${Math.floor(-t.d/7)+1}주차`;
+    const ph = t.d > 7 ? "미리 준비" : t.d >= 0 ? "지금 준비" : t.d >= -21 ? "지금이 제때" : (t.kind==="영화" ? "상영 중" : "방영 중");
+    const where = t.ott ? `OTT · ${t.ch}` : t.kind==="영화" ? `영화 · ${t.ch||"배급 ?"}` : `TV · ${t.ch}`;
+    return `<div class="ac ${prime(t)?"now":""}"><div class="ah"><span class="dd">${dd}</span><span class="n">${esc(t.n)}</span><span class="ph">${ph}</span></div>
+      <div class="m">${esc(where)} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"}${t.est?"":" ~ "+t.end.slice(5).replace("-","/")}</div>
+      ${t.leads.map(l => `<div class="al"><div class="an">${esc(l.n)}</div><div class="aw">${l.ws.map(w =>
+        `<button class="aw1" data-w="${esc(w.i)}">${esc(w.n)} <small>${esc(w.y)}</small>${stTag(w.st)}${w.risk!=="낮음"?rkTag(w):""}</button>`).join("")}</div></div>`).join("")}</div>`; }).join("")
+    : `<div class="empty">${A.length ? "조건에 맞는 작품이 없어요." : "위키백과에서 드라마·영화 일정을 받는 중이에요 — 하루 한 번 새로 받아요."}</div>`;
+  $("#actMore").classList.toggle("hidden", ts.length <= actN);
+  $("#actMore").onclick = () => { actN += 12; drawActor(); };
+  bind();
 }
 function card(w){
   const t = w.top || {};
@@ -408,7 +456,7 @@ function openW(i){
   $("#mbody").innerHTML = `<button class="x" id="mx" aria-label="닫기">×</button>
     <h2>${esc(w.n)}</h2><div class="sub">${esc(w.y)} · ${esc(w.k)} · ${esc(w.d)} · ${esc(w.g)} · 잰 때 ${esc(w.at||"아직")}</div>
     <div class="tgs" style="margin-top:8px">${tagsOf(w)}</div>
-    <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li>${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
+    <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li>${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.act?w.act.map(x=>`<li>배우 타이밍: ${esc(x)}</li>`).join(""):""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
     <div class="kv"><div><span>남의 최고</span><b>${fmt((w.top||{}).v)}</b></div><div><span>100만+</span><b>${w.n100??"—"}편</b></div><div><span>50만+</span><b>${w.n50??"—"}편</b></div>
       <div><span>6개월 생존 100만+</span><b>${w.alive??"—"}편</b></div><div><span>최근 60일 올라온 것</span><b>${w.r60??"—"}편</b></div><div><span>그중 50만+</span><b>${w.r60big??"—"}편</b></div>
       <div><span>마지막 업로드</span><b>${w.gap!=null?w.gap+"일 전":"—"}</b></div><div><span>#${esc(w.tag)}</span><b>${(w.ht||[])[0]!=null?w.ht[0].toLocaleString()+"개":"—"}</b></div></div>

@@ -130,14 +130,17 @@ def search(query, pages=2, sleep=1.2):
     return res
 
 
-def hashtag_count(tag):
-    """#태그 페이지 머리의 '동영상 403개 • 채널 138개' → (403, 138)"""
+def hashtag_page(tag):
+    """#태그 쇼츠 페이지 → (동영상 수, 채널 수, 이 페이지에 뜬 쇼츠 id들)
+       머리의 '동영상 403개 • 채널 138개' 와, 아래 쇼츠 칸(인기 쇼츠가 많이 뜸 — 검색에 안 잡힌 1,000만+ 도 여기서 나옴)"""
     h = fetch("https://www.youtube.com/hashtag/" + urllib.parse.quote(tag) + "/shorts?hl=ko&gl=KR")
+    d = initial_data(h)
+    ids = [x["id"] for x in _lockups(d) + _videos(d)] if d else []
     for s in re.findall(r'"content":"([^"]*동영상[^"]*)"', h):
         m = re.search(r"동영상\s*([\d.,]+\s*[만천]?)개(?:\s*•\s*채널\s*([\d.,]+\s*[만천]?)개)?", s)
         if m:
-            return num(m.group(1)), num(m.group(2)) if m.group(2) else None
-    return None, None
+            return num(m.group(1)), num(m.group(2)) if m.group(2) else None, ids
+    return None, None, ids
 
 
 def channel_rss(cid):
