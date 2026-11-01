@@ -1,0 +1,423 @@
+# -*- coding: utf-8 -*-
+"""영드레이더 — 라필 「영드짜 예능 뽀개기」와 슈드종신자 「저작권 박살내기」 기준으로 작품마다 '지금 들어가도 되나'를 잰다.
+   한 번 돌 때(--once): 오래된 작품부터 쇼츠 검색·최근 업로드·#해시태그를 긁고(쿼터 없음), 조회수·날짜는 videos.list(50개당 1유닛),
+   정답지 채널들의 RSS 로 '막 뜨는 작품'을 잡고, 결과를 비밀번호로 잠가 data.enc.js(화면용)·state.enc.json(기록)에 쓴다.
+   깃허브 Actions(.github/workflows/scan.yml)가 30분마다 부른다.
+   사용: python scan.py --out site --once [--limit N] [--all]
+   비밀번호: 환경변수 RADAR_PASSWORD → 없으면 password.txt / 유튜브 키: YOUTUBE_API_KEY → 없으면 youtube_key.txt (둘 다 저장소에 안 올림)"""
+import os, re, sys, json, time, argparse, urllib.request
+from collections import Counter, defaultdict
+from datetime import datetime, timezone, timedelta
+import yt, lock
+
+if sys.stdout:
+    sys.stdout.reconfigure(encoding="utf-8")
+HERE = os.path.dirname(os.path.abspath(__file__))
+KST = timezone(timedelta(hours=9))
+CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
+R, RUN = CFG["rule"], CFG["run"]
+ST_RANK = {"꿀통": 0, "심정지 재진입": 1, "막 뜸": 2, "후보": 3, "경쟁 중": 4, "수요 약함": 5, "쇼츠 거의 없음": 6, "아직": 7}
+# 방송사·배급사·OTT 공식 채널 (제3자 기록에서 뺀다) — 영드짜\tools\step2_shorts.py 에서 옮김
+OFFICIAL = re.compile(r"(SBS|KBS|MBC|tvN|JTBC|TV\s?CHOSUN|TV조선|채널A|MBN|ENA|OCN|Netflix|넷플릭스|Disney|디즈니|wavve|웨이브|TVING|티빙|"
+                      r"쿠팡|Coupang|KOCOWA|Viki|iQIYI|Studio Dragon|스튜디오드래곤|CJ ENM|U\+|Btv|Seezn|KBS WORLD|Kakao|카카오|Mnet|"
+                      r"디글|Diggle|옛드|옛능|스브스|오분순삭|엠뚜루마뚜루|깔깔티비|플레이무비|PLAYMOVIE|콘텐츠판다|Contents Panda|"
+                      r"롯데엔터|Lotte Entertainment|쇼박스|SHOWBOX|NEW 공식|Plus M|플러스엠|메가박스|"
+                      r"NBC|Universal|Warner|HBO|Paramount|Sony Pictures|Lionsgate|20th Century|Peacock|Prime Video|AMC|BBC|ABC|CBS|FOX|USA Network)", re.I)
+
+
+def now_min():
+    return int(time.time() // 60)
+
+
+def kst(m):
+    return datetime.fromtimestamp(m * 60, KST)
+
+
+def norm(s):
+    return re.sub(r"[^0-9a-z가-힣]", "", (s or "").lower())
+
+
+def tags_in(s):
+    return {norm(t) for t in re.findall(r"#([^\s#]+)", s or "")}
+
+
+def age_days(pub, now):
+    try:
+        t = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return (now * 60 - t.timestamp()) / 86400
+
+
+# ── 작품 ──────────────────────────────────────────────
+def load_works():
+    out = []
+    for line in open(os.path.join(HERE, "works.txt"), encoding="utf-8"):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        p = [x.strip() for x in line.split("|")] + [""] * 7
+        g, k, d, y, n, q, al = p[:7]
+        tag = n.replace(" ", "")
+        names = [n, tag] + [a.strip() for a in al.split(",") if a.strip()]
+        out.append({"i": norm(n) or n, "n": n, "g": g, "k": k, "d": d or "?", "y": y, "tag": tag,
+                    "q": q or "#" + tag, "ht_ok": not q or " " not in q, "names": names})
+    return out
+
+
+def matcher(w):
+    keys = []
+    for nm in w["names"]:
+        hashonly = nm.startswith("#")
+        nn = norm(nm)
+        if nn:
+            keys.append((nn, hashonly or len(nn) <= 2))
+
+    def ok(title, desc="", tags=()):
+        body = norm(title + " " + desc)
+        ht = tags_in(title + " " + desc) | {norm(t) for t in tags}
+        brk = {norm(x) for x in re.findall(r"[\[《<「『【(]([^\]》>」』】)]{1,30})[\]》>」』】)]", title + " " + desc)}
+        for nn, strict in keys:
+            if nn in ht or nn in brk or (not strict and nn in body):
+                return True
+        return False
+    return ok
+
+
+def risk_of(w, chans):
+    if w["k"] == "방송":
+        return "방송", "방송사 화면 — 우리 규칙상 제작 X"
+    hit = [c for c in chans if any(x.lower() in c.lower() for x in CFG["risk_channels"])]
+    if hit:
+        return "높음", f"{hit[0]} 채널에 이 작품 영상이 있음 (라필 책 18쪽 더블 체크)"
+    for lv in ("높음", "중간"):
+        for x in CFG["risk"][lv]:
+            if x.lower() in w["d"].lower():
+                why = {"HBO": "박살내기 책 저자 채널이 HBO 에 싹 쓸림", "쇼박스": "라필 책: 쇼박스는 특정 작품만 골라 지움"}.get(
+                    x, "라필 책: NEW·KT(플레이무비)·콘텐츠판다는 경고 3개를 한 번에 → 채널 삭제")
+                return lv, why
+    if w["d"] == "?":
+        return "?", "배급사 확인 필요"
+    return "낮음", "책에서 피하라고 한 배급사가 아님"
+
+
+# ── 한 작품 재기 ─────────────────────────────────────────
+def scan_work(w, key, mode, log):
+    if mode == "scrape":
+        r = yt.search(w["q"], pages=2, sleep=RUN["sleep_sec"])
+        src = [(x["id"], "s") for x in r["shorts"]] + [(x["id"], "r") for x in r["recent"]]
+    else:
+        src = [(x["id"], "s") for x in yt.api_search(w["q"].lstrip("#"), key, "viewCount")] + \
+              [(x["id"], "r") for x in yt.api_search(w["q"].lstrip("#"), key, "date")]
+    ht = (None, None)
+    if mode == "scrape" and w["ht_ok"]:
+        time.sleep(RUN["sleep_sec"])
+        ht = yt.hashtag_count(w["tag"])
+    ids = list(dict.fromkeys(i for i, _ in src if i))
+    meta = yt.videos(ids, key)
+    ok = matcher(w)
+    vids, off_ch, seen = [], set(), 0
+    for i in ids:
+        m = meta.get(i)
+        if not m:
+            continue
+        seen += 1
+        if not ok(m["t"], m["desc"], m["tags"]):
+            continue
+        off = bool(OFFICIAL.search(m["ch"]))
+        if off:
+            off_ch.add(m["ch"])
+        if not m["dur"] or m["dur"] > 180:
+            continue
+        vids.append([i, m["t"][:90], m["ch"], m["cid"], m["v"], m["pub"][:19], int(off)])
+    vids.sort(key=lambda v: -v[4])
+    return {"at": now_min(), "mode": mode, "seen": seen, "units": (len(ids) + 49) // 50 + (200 if mode == "api" else 0),
+            "ht": list(ht), "off": sorted(off_ch)[:8], "v": vids[:120]}
+
+
+def judge(w, rec, now):
+    """책 기준으로 상태를 정한다"""
+    if not rec:
+        return {"st": "아직"}
+    vs = [v[:7] + [age_days(v[5], now)] for v in rec["v"] if not v[6]]  # 제3자만, 끝에 며칠 전인지
+    big = [v for v in vs if v[4] >= R["big"]]
+    alive = [v for v in big if v[7] is not None and v[7] >= R["alive_days"]]
+    r60 = [v for v in vs if v[7] is not None and v[7] <= R["recent_days"]]
+    r60big = [v for v in r60 if v[4] >= R["mid"]]
+    hot = [v for v in vs if v[7] is not None and v[7] <= R["hot_days"] and v[4] >= R["hot_views"]]
+    ages = [v[7] for v in vs if v[7] is not None]
+    gap = round(min(ages)) if ages else None
+    ans = Counter((v[3], v[2]) for v in big).most_common(1)
+    top = vs[0] if vs else None
+    n100, n50 = len(big), sum(v[4] >= R["mid"] for v in vs)
+    if len(vs) < R["few_shorts"]:
+        st = "쇼츠 거의 없음"
+    elif n100 == 0 and n50 < 2:
+        st = "수요 약함"
+    elif hot:
+        st = "막 뜸"
+    elif r60big:
+        st = "경쟁 중"
+    elif n100 >= 1 and gap is not None and gap >= R["revive_gap_days"]:
+        st = "심정지 재진입"
+    elif n100 >= 2 and alive:
+        st = "꿀통"
+    else:
+        st = "후보"
+    why = []
+    if n100: why.append(f"남의 100만+ {n100}편")
+    if alive: why.append(f"6개월 넘게 생존 {len(alive)}편")
+    elif big: why.append("100만+가 아직 6개월 안 됨")
+    why.append(f"최근 {R['recent_days']}일 50만+ " + (f"{len(r60big)}편" if r60big else "없음"))
+    if gap is not None: why.append(f"마지막 업로드 {gap}일 전")
+    hv = rec["ht"][0]
+    if hv is not None: why.append(f"#{w['tag']} 동영상 {hv:,}개")
+    pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
+    return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
+            "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
+            "top": pv(top) if top else None, "ans": {"cid": ans[0][0][0], "ch": ans[0][0][1], "n": ans[0][1]} if ans else None,
+            "hot": [pv(v) for v in hot[:4]], "vids": [pv(v) for v in vs[:8]], "ht": rec["ht"],
+            "beginner": hv is not None and hv < R["hashtag_beginner"], "off": rec.get("off", [])}
+
+
+# ── 정답지 채널 RSS → 막 뜨는 작품 ─────────────────────────────
+def watch_round(st, works, log):
+    big_ch = Counter()
+    names = {}
+    for rec in st["works"].values():
+        for v in rec["v"]:
+            if not v[6] and v[4] >= R["big"]:
+                big_ch[v[3]] += 1; names[v[3]] = v[2]
+    cids = [c for c, _ in big_ch.most_common(RUN["watch_max"])]
+    st["watch"] = {c: {"t": names[c], "n100": big_ch[c]} for c in cids}
+    oks = [(w, matcher(w)) for w in works]
+    now, fails = now_min(), 0
+    for c in cids:
+        try:
+            title, items = yt.channel_rss(c)
+        except yt.Blocked:
+            raise
+        except Exception:
+            fails += 1
+            continue
+        keep = []
+        for it in items:
+            a = age_days(it["pub"], now)
+            if a is None or a > 7:
+                continue
+            hit = [w["i"] for w, ok in oks if ok(it["title"], it["desc"])]
+            keep.append({"id": it["id"], "t": it["title"][:90], "v": it["v"], "pub": it["pub"][:19], "short": it["short"],
+                         "w": hit[:3], "tags": sorted(tags_in(it["title"] + " " + it["desc"]))[:12]})
+        st["rss"][c] = {"t": title or names[c], "at": now, "items": keep}
+        time.sleep(0.25)
+    for c in list(st["rss"]):
+        if c not in st["watch"]:
+            st["rss"].pop(c)
+    log(f"감시 채널 {len(cids)}곳 RSS (실패 {fails})")
+
+
+# ── 화면에 줄 것 ────────────────────────────────────────
+def season_list(today):
+    out = []
+    for s in CFG["seasons"]:
+        d = s["date"]
+        if len(d) == 5:
+            dt = datetime.strptime(f"{today.year}-{d}", "%Y-%m-%d").date()
+            if (dt - today).days < -1:
+                dt = dt.replace(year=today.year + 1)
+        else:
+            dt = datetime.strptime(d, "%Y-%m-%d").date()
+        left = (dt - today).days
+        if left >= -1:
+            out.append({"n": s["n"], "date": dt.isoformat(), "left": left, "g": s["g"],
+                        "soon": left <= CFG["season_lead_days"]})
+    return sorted(out, key=lambda x: x["left"])
+
+
+def issues(works, log):
+    try:
+        req = urllib.request.Request(CFG["issues_url"], headers={"User-Agent": yt.UA})
+        d = json.loads(urllib.request.urlopen(req, timeout=20).read())
+    except Exception as e:
+        log(f"오늘의 흐름 이슈 못 받음: {e}")
+        return {}
+    texts = []
+    for geo in (d.get("trends") or {}).values():
+        for it in geo.get("items", []):
+            texts.append((it.get("title", ""), " ".join(n.get("title", "") for n in it.get("news", []))))
+    out = {}
+    for w in works:
+        nn = norm(w["n"])
+        if len(nn) < 3:
+            continue
+        for t, news in texts:
+            if nn in norm(t + " " + news):
+                out[w["i"]] = t
+                break
+    return out
+
+
+def build(st, works, iss, mode_note, errs):
+    now = now_min()
+    J = {w["i"]: dict(judge(w, st["works"].get(w["i"]), now),
+                      **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")})
+         for w in works}
+    for w in works:
+        j = J[w["i"]]
+        rec = st["works"].get(w["i"])
+        j["at"] = kst(rec["at"]).strftime("%m-%d %H:%M") if rec else None
+        j["risk"], j["riskwhy"] = risk_of(w, [v[2] for v in (rec or {}).get("v", [])] + (rec or {}).get("off", []))
+        if w["i"] in iss:
+            j["issue"] = iss[w["i"]]
+    # RSS 로 잡힌 급상승 → 작품에 붙이고, 못 알아본 건 소재 피드로
+    feed, rss_hot = [], defaultdict(list)
+    for c, ch in st["rss"].items():
+        for it in ch["items"]:
+            a = age_days(it["pub"], now)
+            if it["v"] is None or a is None or a > R["hot_days"] or it["v"] < R["hot_views"]:
+                continue
+            row = {"id": it["id"], "t": it["t"], "ch": ch["t"], "cid": c, "v": it["v"], "pub": it["pub"][:10],
+                   "age": round(a, 1), "tags": it["tags"]}
+            if it["w"]:
+                for wi in it["w"]:
+                    rss_hot[wi].append(row)
+            else:
+                feed.append(row)
+    for wi, rows in rss_hot.items():
+        if wi in J:
+            seen = {h["id"] for h in J[wi].get("hot", [])}
+            J[wi]["hot"] = sorted(J[wi].get("hot", []) + [r for r in rows if r["id"] not in seen], key=lambda r: -r["v"])[:4]
+    # 연관작: 같은 결 + 같은 채널이 함께 올린 작품
+    chan_works = defaultdict(set)
+    for wi, rec in st["works"].items():
+        for v in rec["v"]:
+            if not v[6] and v[4] >= 100000:
+                chan_works[v[3]].add(wi)
+    good = ("꿀통", "심정지 재진입", "후보")
+    for j in J.values():
+        share = Counter()
+        for c, ws in chan_works.items():
+            if j["i"] in ws:
+                for o in ws - {j["i"]}:
+                    share[o] += 1
+        cands = {}
+        for o, n in share.items():
+            if o in J and J[o]["st"] in good:
+                cands[o] = f"같은 채널 {n}곳"
+        for o in J.values():
+            if o["g"] == j["g"] and o["i"] != j["i"] and o["st"] in good and o["i"] not in cands:
+                cands[o["i"]] = "같은 결"
+        rank = lambda o: (ST_RANK[J[o]["st"]], -share.get(o, 0), -(J[o].get("n100") or 0))
+        j["rel"] = [{"i": o, "why": cands[o]} for o in sorted(cands, key=rank)[:6]]
+    hot = sorted([j["i"] for j in J.values() if j.get("hot")], key=lambda i: -max(h["v"] for h in J[i]["hot"]))
+    gy = []
+    for g in CFG["gyeol"]:
+        ids = sorted([j["i"] for j in J.values() if j["g"] == g["k"]],
+                     key=lambda i: (ST_RANK[J[i]["st"]], -(J[i].get("n100") or 0), -((J[i].get("top") or {}).get("v") or 0)))
+        gy.append(dict(g, ids=ids, pass_=sum(J[i]["st"] in ("꿀통", "심정지 재진입") and J[i]["k"] != "방송" for i in ids),
+                       cand=sum(J[i]["st"] == "후보" for i in ids)))
+    chans = sorted(({"cid": c, "t": v["t"], "n100": v["n100"],
+                     "works": sorted({J[wi]["n"] for wi in chan_works.get(c, ()) if wi in J})[:8]}
+                    for c, v in st.get("watch", {}).items()), key=lambda x: -x["n100"])
+    today = kst(now).date()
+    return {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "mode": mode_note, "err": errs[-12:], "rule": R,
+            "works": list(J.values()), "hot": hot, "feed": sorted(feed, key=lambda r: -r["v"])[:60],
+            "gyeol": gy, "seasons": season_list(today), "channels": chans,
+            "scanned": sum(1 for w in works if w["i"] in st["works"]), "total": len(works),
+            "units": st["units"].get(today.isoformat(), 0)}
+
+
+# ── 한 번 돌기 ─────────────────────────────────────────
+def secret(env, fname):
+    v = os.environ.get(env, "").strip()
+    if not v and os.path.exists(os.path.join(HERE, fname)):
+        v = open(os.path.join(HERE, fname), encoding="utf-8").read().strip()
+    return v
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=os.path.join(HERE, "site"))
+    ap.add_argument("--once", action="store_true")
+    ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--all", action="store_true", help="오래된 순서 무시하고 전부")
+    ap.add_argument("--minutes", type=float, default=24, help="작품 재기에 쓸 최대 시간")
+    a = ap.parse_args()
+    pw, key = secret("RADAR_PASSWORD", "password.txt"), secret("YOUTUBE_API_KEY", "youtube_key.txt")
+    if not pw or not key:
+        sys.exit("비밀번호(RADAR_PASSWORD) 나 유튜브 키(YOUTUBE_API_KEY) 가 없음")
+    os.makedirs(a.out, exist_ok=True)
+    sp = os.path.join(a.out, "state.enc.json")
+    log = lambda m: print(f"[{datetime.now(KST):%H:%M:%S}] {m}", flush=True)
+    st = {}
+    if os.path.exists(sp):
+        try:
+            st = lock.open_(json.load(open(sp, encoding="utf-8")), pw)
+        except Exception:
+            log("지난 기록을 못 풂(비밀번호가 바뀜?) → 새로 시작")
+    for k in ("works", "rss", "watch", "units"):
+        st.setdefault(k, {})
+    st.setdefault("err", [])
+    works = load_works()
+    now, today = now_min(), kst(now_min()).date().isoformat()
+    stale = sorted((w for w in works if a.all or now - st["works"].get(w["i"], {}).get("at", 0) >= RUN["rescan_hours"] * 60),
+                   key=lambda w: st["works"].get(w["i"], {}).get("at", 0))
+    if a.limit:
+        stale = stale[:a.limit]
+    elif st["works"]:
+        stale = stale[:RUN["per_round"]]
+    mode, blocks, done, t0 = st.get("mode", "scrape"), 0, 0, time.time()
+    if mode == "api" and st.get("mode_day") != today:
+        mode = "scrape"  # 하루 지나면 다시 긁기부터 해 본다
+    log(f"작품 {len(works)}편 중 {len(stale)}편 재기 ({'긁기' if mode == 'scrape' else 'API 검색'})")
+    for w in stale:
+        if time.time() - t0 > a.minutes * 60:
+            log("시간이 다 돼서 나머지는 다음 회차에")
+            break
+        if mode == "api" and st["units"].get(today, 0) + 202 > 6000:
+            log("오늘 API 검색 몫(6,000유닛)을 다 씀 → 다음 회차에")
+            break
+        try:
+            rec = scan_work(w, key, mode, log)
+            blocks = 0
+        except yt.Blocked as e:
+            blocks += 1
+            st["err"].append(f"{today} {w['n']}: 긁기 막힘 {e}")
+            if blocks >= 3 and mode == "scrape":
+                mode = "api"; st["mode_day"] = today
+                log("유튜브가 긁기를 막음 → 오늘은 API 검색(작품당 200유닛)으로")
+            continue
+        except Exception as e:
+            st["err"].append(f"{today} {w['n']}: {type(e).__name__} {e}"[:200])
+            if "quota" in str(e).lower():
+                log("유튜브 키 쿼터 다 씀"); break
+            continue
+        st["works"][w["i"]] = rec
+        st["units"][today] = st["units"].get(today, 0) + rec["units"]
+        done += 1
+        j = judge(w, rec, now_min())
+        log(f"  {w['n']}: {j['st']} · 100만+ {j.get('n100', 0)} · 최근60일 50만+ {j.get('r60big', 0)} · 확인 {len(rec['v'])}/{rec['seen']}")
+    st["mode"] = mode
+    try:
+        watch_round(st, works, log)
+    except yt.Blocked as e:
+        st["err"].append(f"{today} RSS 막힘 {e}")
+    keep = {w["i"] for w in works}
+    st["works"] = {k: v for k, v in st["works"].items() if k in keep}
+    st["units"] = dict(sorted(st["units"].items())[-10:])
+    st["err"] = st["err"][-40:]
+    note = "긁기" if mode == "scrape" else "API 검색 (긁기 막힘)"
+    data = build(st, works, issues(works, log), note, st["err"])
+    for path, body in ((sp, json.dumps(lock.seal(st, pw))),
+                       (os.path.join(a.out, "data.enc.js"), "window.YD_BOX = " + json.dumps(lock.seal(data, pw)) + ";\n"),
+                       (os.path.join(a.out, "status.json"), json.dumps({"at": data["at"], "mode": note, "done": done,
+                                                                         "scanned": data["scanned"], "total": data["total"],
+                                                                         "errors": len(st["err"])}, ensure_ascii=False))):
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            f.write(body)
+        os.replace(path + ".tmp", path)
+    log(f"끝: 이번 {done}편, 누적 {data['scanned']}/{data['total']}편, 막 뜸 {len(data['hot'])}, 감시 채널 {len(data['channels'])}, 오늘 {data['units']}유닛")
+
+
+if __name__ == "__main__":
+    main()

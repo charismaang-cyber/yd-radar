@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>영드레이더</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+:root{--honey:#2f9e6a;--revive:#e0803a;--hot:#d6404a;--cand:#c9a227;--busy:#8b5a7a;--weak:#9a95ad}
+.lock{position:fixed;inset:0;display:grid;place-items:center;padding:16px;z-index:50}
+.lock .card{width:min(380px,100%);padding:30px 26px;text-align:center}
+.lock h1{margin:10px 0 4px;font-size:24px;font-weight:800}
+.lock p{margin:0 0 18px;color:var(--ink3);font-size:12.5px}
+.lock input{width:100%;font:inherit;font-size:15px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card-solid);color:var(--ink)}
+.lock .btn{width:100%;justify-content:center;margin:12px 0 0}
+.lock .msg{min-height:18px;margin-top:10px;font-size:12.5px;color:var(--up)}
+.hidden{display:none!important}
+.tgs{display:flex;flex-wrap:wrap;gap:4px}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--card-solid);color:var(--ink2);font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--card-solid);border-color:var(--ink);font-weight:700}
+.search{font:inherit;font-size:12.5px;color:var(--ink);background:var(--card-solid);border:1px solid var(--line);border-radius:12px;padding:7px 11px;min-width:0;flex:1 1 150px}
+.rule{font-size:12px;color:var(--ink3);margin:10px 0 0;line-height:1.6}
+.rule b{color:var(--ink2)}
+
+.tg{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;color:#fff;white-space:nowrap;vertical-align:1px}
+.s-honey{background:var(--honey)}.s-revive{background:var(--revive)}.s-hot{background:var(--hot)}.s-cand{background:var(--cand)}
+.s-busy{background:var(--busy)}.s-weak,.s-few{background:var(--weak)}.s-none{background:transparent;color:var(--ink3);border:1px dashed var(--line)}
+.r{background:transparent;border:1px solid currentColor}
+.r-낮음{color:var(--honey)}.r-중간{color:var(--revive)}.r-높음{color:var(--hot)}.r-방송{color:#8b6fd6}.r-\?{color:var(--ink3)}
+.tg.iss{background:#4a7fc9}.tg.beg{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;padding-top:14px}
+.wc{display:flex;gap:12px;padding:12px;border-radius:16px;background:var(--card-solid);border:1px solid var(--line);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.wc:hover{border-color:var(--accent)}
+.th{width:74px;aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:var(--line);flex-shrink:0;position:relative}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th b{position:absolute;left:0;right:0;bottom:0;padding:10px 5px 4px;font-size:12px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));font-weight:800}
+.wc .nm{font-weight:800;font-size:15px;line-height:1.3}
+.wc .nm small{font-weight:500;color:var(--ink3);font-size:11.5px;margin-left:4px}
+.wc .tgs{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 6px}
+.wc .big{font-size:12px;color:var(--ink3)}
+.wc .big b{font-size:19px;color:var(--ink);font-weight:800;margin-right:3px}
+.wc .why{font-size:11.5px;color:var(--ink2);margin-top:4px;line-height:1.5}
+.more{display:block;margin:14px auto 0;border:1px solid var(--line);background:var(--card-solid);color:var(--ink2);font:inherit;font-weight:700;padding:8px 18px;border-radius:12px;cursor:pointer}
+
+.hotrow{display:grid;grid-template-columns:210px minmax(0,1fr);gap:18px;padding:16px 0;border-bottom:1px solid var(--line)}
+.hotrow:last-child{border-bottom:0}
+.hv{display:flex;gap:10px}
+.hv .th{width:86px}
+.hv .t{font-weight:800;font-size:15px}
+.hv .m{font-size:12px;color:var(--ink3);margin-top:3px;line-height:1.5}
+.hv .m b{color:var(--hot);font-size:15px}
+.rel-h{font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:8px}
+.rels{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.rl{padding:10px 11px;border-radius:12px;background:var(--card-solid);border:1px solid var(--line);cursor:pointer;font:inherit;color:inherit;text-align:left}
+.rl:hover{border-color:var(--accent)}
+.rl .nm{font-weight:800;font-size:13.5px}
+.rl .m{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.rl .m b{color:var(--ink);font-size:14px}
+
+.gmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding-top:14px}
+.gc{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px 14px 8px}
+.gc h4{margin:0;font-size:15px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gc .d{font-size:11.5px;color:var(--ink3);margin:4px 0 6px;line-height:1.5}
+.gi{display:grid;grid-template-columns:18px 40px minmax(0,1fr);gap:9px;align-items:center;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.gi .no{font-family:"Cormorant Garamond",serif;font-size:17px;color:var(--ink3);text-align:center}
+.gi .th{width:40px}
+.gi .nm{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi .m{font-size:11.5px;color:var(--ink3);margin-top:2px}
+.gi .m b{color:var(--ink)}
+.gi:hover .nm{text-decoration:underline}
+.gc .mo{border:0;background:transparent;color:var(--accent);font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:8px 0 4px}
+
+.seas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding-top:14px}
+.sc{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px}
+.sc .dd{font-family:"Cormorant Garamond",serif;font-size:26px;font-weight:600;color:var(--accent);line-height:1}
+.sc.soon .dd{color:var(--hot)}
+.sc .n{font-weight:800;font-size:15px;margin-top:4px}
+.sc .m{font-size:11.5px;color:var(--ink3)}
+.sc ul{margin:8px 0 0;padding:0;list-style:none}
+.sc li{font-size:12.5px;padding:3px 0;cursor:pointer}
+.sc li:hover{text-decoration:underline}
+
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:980px}
+th{position:sticky;top:0;text-align:left;font-weight:700;color:var(--ink2);padding:8px 8px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;background:var(--card-solid)}
+th.on{color:var(--ink)}
+td{padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+td.n{text-align:right}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:rgba(127,110,190,.07)}
+td .w{font-weight:700}
+
+.ch-row{display:grid;grid-template-columns:28px minmax(0,1fr) 70px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.ch-row .nm{font-weight:700}
+.ch-row .m{font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-row .c{text-align:right;font-weight:800;color:var(--accent)}
+.feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.fd{display:flex;gap:10px;padding:10px;border-radius:12px;background:var(--card-solid);border:1px solid var(--line)}
+.fd .th{width:60px}
+.fd .t{font-size:12.5px;font-weight:700;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fd .m{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.fd .m b{color:var(--hot)}
+
+.modal{position:fixed;inset:0;background:rgba(20,16,40,.45);z-index:40;display:grid;place-items:start center;padding:40px 16px;overflow-y:auto}
+.modal .card{width:min(880px,100%);padding:24px 24px 18px;background:var(--card-solid)}
+.modal h2{margin:0;font-size:22px;font-weight:800}
+.modal .x{position:absolute;right:16px;top:12px;border:0;background:transparent;font-size:24px;color:var(--ink3);cursor:pointer}
+.modal .sub{font-size:12.5px;color:var(--ink3);margin-top:4px}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:14px 0}
+.kv div{background:var(--sky1);border-radius:12px;padding:9px 11px}
+.kv span{display:block;font-size:11px;color:var(--ink3)}
+.kv b{font-size:17px}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
+.links a{font-size:12.5px;font-weight:700;border:1px solid var(--line);padding:6px 12px;border-radius:10px;background:var(--card)}
+.links a:hover{border-color:var(--accent)}
+.vg{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.vg a{display:block}
+.vg .th{width:100%}
+.vg .t{font-size:11.5px;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vg .m{font-size:11px;color:var(--ink3)}
+.h5{font-size:13px;font-weight:800;margin:16px 0 8px}
+.whyl{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink2);line-height:1.7}
+
+@media (max-width:900px){
+  .hotrow{grid-template-columns:1fr}
+  .cards{grid-template-columns:1fr}
+  .gmap{grid-template-columns:1fr}
+  .modal{padding:16px}
+  .modal .card{padding:20px 16px 14px}
+}
+</style>
+</head>
+<body>
+<div class="lock hidden" id="lock">
+  <div class="card sparkle">
+    <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="var(--sky2)"/><circle cx="32" cy="34" r="13" fill="none" stroke="var(--accent)" stroke-width="2.4"/><circle cx="32" cy="34" r="5" fill="var(--accent)"/><line x1="32" y1="34" x2="48" y2="20" stroke="var(--up)" stroke-width="3" stroke-linecap="round"/></svg>
+    <h1>영드레이더</h1>
+    <p>비밀번호를 한 번 넣으면 이 브라우저는 기억해요.</p>
+    <form id="lockForm"><input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호"><button class="btn" type="submit">열기</button></form>
+    <div class="msg" id="lockMsg"></div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <aside class="card side sparkle">
+    <div class="logo">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="var(--sky2)"/><circle cx="32" cy="34" r="13" fill="none" stroke="var(--accent)" stroke-width="2.4"/><circle cx="32" cy="34" r="5" fill="var(--accent)"/><line x1="32" y1="34" x2="48" y2="20" stroke="var(--up)" stroke-width="3" stroke-linecap="round"/><text x="50" y="14" font-size="10" fill="var(--star)">✦</text></svg>
+      <div>
+        <div class="brand">YD Radar</div>
+        <div class="brand-ko">영드레이더</div>
+        <div class="brand-sub">✦ 영드짜 꿀통 찾기 ✦</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#today">◎ 오늘 뭐 만들까 <span class="cnt" id="nToday"></span></a>
+      <a href="#hot">✦ 막 뜨는 작품 <span class="cnt" id="nHot"></span></a>
+      <a href="#map">◈ 결 지도</a>
+      <a href="#season">◔ 시즌·이슈</a>
+      <a href="#all">☰ 작품 전체 <span class="cnt" id="nAll"></span></a>
+      <a href="#chan">◉ 정답지 채널 <span class="cnt" id="nChan"></span></a>
+      <a href="https://charismaang-cyber.github.io/daily-flow/">↗ 오늘의 흐름</a>
+    </nav>
+    <div class="side-foot">
+      <svg class="moon" viewBox="0 0 48 48" aria-hidden="true"><path d="M30 6a18 18 0 1 0 12 30A16 16 0 0 1 30 6z" fill="#f3d98b"/></svg>
+      <div class="upd">마지막 받음<br><b id="at">—</b></div>
+      <div class="dots">● ● ● ● ● ● ● ● ●</div>
+      <div class="theme" role="group" aria-label="화면 밝기">
+        <button data-t="light" title="밝게">☀</button>
+        <button data-t="dark" title="어둡게">☾</button>
+        <button id="relock" title="잠그기">🔒</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="card hero sparkle">
+      <div class="trail"></div>
+      <div style="min-width:0">
+        <div class="eyebrow">YD RADAR · <span id="todayDate"></span></div>
+        <h1>오늘 뭐 만들까요?<em>find the honey pot</em></h1>
+        <div class="sum" id="summary">불러오는 중…</div>
+        <div class="note" id="note"></div>
+        <div class="err" id="errs"></div>
+      </div>
+    </section>
+
+    <section class="tiles" id="tiles"></section>
+
+    <section class="card panel">
+      <div class="bar">
+        <button class="chip" id="bc">방송사 작품도 보기</button>
+        <button class="chip" id="noRisk">저작권 높음 빼기</button>
+        <input class="search" id="q" type="search" placeholder="작품 찾기">
+      </div>
+      <div class="rule"><b>꿀통</b> = 남의 100만+ 2편↑ · 그중 6개월 넘게 살아 있음 · 최근 60일 50만+ 없음 &nbsp;/&nbsp; <b>심정지 재진입</b> = 100만+ 기록 있고 90일 넘게 아무도 안 올림 &nbsp;/&nbsp; <b>경쟁 중</b> = 최근 60일 50만+ 남의 쇼츠 있음(라필: 지금 올리는 사람 있으면 넘김) &nbsp;/&nbsp; <b>막 뜸</b> = 3일 안에 10만+ — 이 작품은 누가 잡는 중, 연관작이 트래픽을 받음</div>
+    </section>
+
+    <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · 저작권 낮은 것 먼저</div></div>
+    <section class="card panel sparkle"><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button></section>
+
+    <div class="sec-h" id="hot"><div><span class="eyebrow">RISING + RELATED</span><h2>막 뜨는 작품 + 연관 꿀통<em id="cHot"></em></h2></div><div class="at">최근 3일 10만+ · 감시 채널 RSS + 작품 검색</div></div>
+    <section class="card panel"><div id="hotList"></div></section>
+
+    <div class="sec-h" id="map"><div><span class="eyebrow">GYEOL MAP</span><h2>결 지도</h2></div><div class="at">라필: 결 맞추기가 90% · 같은 결 3편 이상 정해 두고 시작</div></div>
+    <section class="card panel sparkle">
+      <div class="bar" id="sideChips"></div>
+      <div class="gmap" id="gmap"></div>
+    </section>
+
+    <div class="sec-h" id="season"><div><span class="eyebrow">SEASON · ISSUE</span><h2>시즌·이슈</h2></div><div class="at">라필: 삼일절·광복절엔 일제강점기, 추석엔 고부갈등 · 이슈는 오늘의 흐름 구글 트렌드</div></div>
+    <section class="card panel"><div class="seas" id="seasons"></div><div id="issues"></div></section>
+
+    <div class="sec-h" id="all"><div><span class="eyebrow">ALL WORKS</span><h2>작품 전체<em id="cAll"></em></h2></div><div class="at">제목 줄을 누르면 정렬 · 작품 목록은 저장소 works.txt</div></div>
+    <section class="card panel"><div class="tbl-wrap"><table id="tbl"></table></div></section>
+
+    <div class="sec-h" id="chan"><div><span class="eyebrow">ANSWER CHANNELS · FEED</span><h2>정답지 채널 · 소재 피드</h2></div><div class="at">100만+ 쇼츠를 낸 채널을 자동으로 모아 지켜봄</div></div>
+    <section class="grid2">
+      <div class="card panel"><div class="panel-h"><h3>정답지 채널</h3><span class="sub">100만+ 편수</span></div><div class="scroll" id="chans"></div></div>
+      <div class="card panel"><div class="panel-h"><h3>목록에 없는 급상승</h3><span class="sub">감시 채널이 3일 안에 10만+ — 새 작품 후보</span></div><div class="scroll"><div class="feed" id="feed"></div></div></div>
+    </section>
+    <div class="foot">기준: 라필 「영드짜 예능 뽀개기」 · 슈드종신자 「저작권 박살내기」 · 쇼츠 검색은 쿼터 없이 긁고 조회수·날짜는 유튜브 API</div>
+  </main>
+</div>
+
+<div class="modal hidden" id="modal"><div class="card" id="mbody"></div></div>
+
+<script>
+const root = document.documentElement;
+function setTheme(t){ root.dataset.theme = t; try{localStorage.setItem("theme",t)}catch(e){}
+  document.querySelectorAll(".theme button[data-t]").forEach(b=>b.classList.toggle("on",b.dataset.t===t)); }
+let saved = null; try{saved = localStorage.getItem("theme")}catch(e){}
+if(saved) setTheme(saved);
+document.querySelectorAll(".theme button[data-t]").forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = v => v==null ? "—" : v>=1e8 ? (v/1e8).toFixed(1).replace(/\.0$/,"")+"억" : v>=1e6 ? Math.round(v/1e4).toLocaleString()+"만"
+  : v>=1e4 ? (v/1e4).toFixed(1).replace(/\.0$/,"")+"만" : v.toLocaleString();
+const ago = d => d==null ? "—" : d<1 ? Math.round(d*24)+"시간 전" : d<60 ? Math.round(d)+"일 전" : d<730 ? Math.round(d/30)+"달 전" : Math.round(d/365)+"년 전";
+const ST = {"꿀통":["honey","남의 100만+ 2편↑ · 6개월 넘게 살아 있음 · 최근 60일 50만+ 없음 → 지금 들어가기 좋음"],
+  "심정지 재진입":["revive","100만+ 기록이 있는데 90일 넘게 아무도 안 올림 → 다시 살리기"],
+  "막 뜸":["hot","최근 3일 안에 10만+ 뜬 남의 쇼츠 → 이 작품은 누가 잡는 중, 연관작이 트래픽을 받음"],
+  "후보":["cand","100만+가 1편뿐이거나 6개월 생존이 아직 확인 안 됨"],
+  "경쟁 중":["busy","최근 60일 안에 50만+ 남의 쇼츠 → 라필 책: 지금 올리는 사람 있으면 넘김"],
+  "수요 약함":["weak","남의 100만+ 쇼츠가 없음"],
+  "쇼츠 거의 없음":["few","쇼츠가 5개 미만 → 라필 책: 배급사가 지운 것일 수 있으니 하지 않음"],
+  "아직":["none","아직 안 잼 — 다음 회차에"]};
+const RANK = {"꿀통":0,"심정지 재진입":1,"막 뜸":2,"후보":3,"경쟁 중":4,"수요 약함":5,"쇼츠 거의 없음":6,"아직":7};
+const RISK = {"낮음":0,"?":1,"중간":2,"방송":3,"높음":4};
+const stTag = st => `<span class="tg s-${ST[st][0]}" title="${esc(ST[st][1])}">${esc(st)}</span>`;
+const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
+// 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
+const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
+const tagsOf = w => stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"");
+
+let D = null, W = {}, opt = {bc:false, noRisk:false, q:"", side:"all", good:false, sort:"st", asc:true};
+try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
+const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:opt.bc,noRisk:opt.noRisk,side:opt.side,good:opt.good})); }catch(e){} };
+const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.q || (w.n+w.tag+w.g).toLowerCase().includes(opt.q.toLowerCase()));
+const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
+
+// ── 잠금 풀기 ──
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlock(box, pw){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(box.salt), iterations:box.iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+  const raw = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(box.iv)}, key, b64(box.ct));
+  const txt = await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return JSON.parse(txt);
+}
+function loadBox(){
+  return new Promise(res => { const s = document.createElement("script"); s.src = "data.enc.js?t=" + Date.now();
+    s.onload = () => res(window.YD_BOX || null); s.onerror = () => res(null); document.head.appendChild(s); });
+}
+async function start(){
+  const box = await loadBox();
+  if(!box){ $("#lock").classList.remove("hidden"); $("#lockMsg").textContent = "아직 자료가 없어요 — 첫 실행이 끝나면 생겨요."; return; }
+  let pw = null; try{ pw = localStorage.getItem("yd_pw"); }catch(e){}
+  if(pw){ try{ return show(await unlock(box, pw)); }catch(e){} }
+  $("#lock").classList.remove("hidden"); $("#pw").focus();
+  $("#lockForm").onsubmit = async ev => { ev.preventDefault(); const p = $("#pw").value; $("#lockMsg").textContent = "여는 중…";
+    try{ const d = await unlock(box, p); try{ localStorage.setItem("yd_pw", p); }catch(e){} $("#lock").classList.add("hidden"); show(d); }
+    catch(e){ $("#lockMsg").textContent = "비밀번호가 달라요."; } };
+}
+$("#relock").onclick = () => { try{ localStorage.removeItem("yd_pw"); }catch(e){} location.reload(); };
+
+// ── 그리기 ──
+function show(d){
+  D = d; W = {}; d.works.forEach(w => W[w.i] = w);
+  $("#app").classList.remove("hidden");
+  $("#at").textContent = d.at.slice(5);
+  $("#todayDate").textContent = d.at.slice(0,10);
+  $("#bc").classList.toggle("on", opt.bc); $("#noRisk").classList.toggle("on", opt.noRisk);
+  $("#bc").onclick = () => { opt.bc = !opt.bc; saveOpt(); show(D); };
+  $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
+  $("#q").oninput = e => { opt.q = e.target.value.trim(); draw(); };
+  draw();
+  if(location.hash) document.querySelector(location.hash)?.scrollIntoView();
+}
+function draw(){
+  const ws = D.works.filter(vis), cnt = st => ws.filter(w=>w.st===st).length;
+  const good = ws.filter(w => w.st==="꿀통" || w.st==="심정지 재진입").sort(byGood);
+  $("#summary").textContent = `작품 ${D.scanned}/${D.total}편을 쟀고, 지금 들어가기 좋은 것 ${good.length}편`;
+  $("#note").textContent = `30분마다 오래된 작품부터 다시 잼 · 이번 방식: ${D.mode} · 오늘 유튜브 키 ${D.units.toLocaleString()}유닛`;
+  $("#errs").textContent = D.mode.includes("막힘") ? "유튜브가 서버 긁기를 막아서 API 검색으로 돌고 있어요(하루 약 30편만)." : "";
+  const tiles = [["꿀통", cnt("꿀통"), "honey"], ["심정지 재진입", cnt("심정지 재진입"), "revive"], ["막 뜸", D.hot.filter(i=>vis(W[i])).length, "hot"],
+    ["경쟁 중", cnt("경쟁 중"), "busy"], ["정답지 채널", D.channels.length, ""], ["잰 작품", D.scanned, ""]];
+  $("#tiles").innerHTML = tiles.map(([n,v,c]) => `<div class="card tile"><div class="nm">${n}</div><div class="px" style="${c?`color:var(--${c})`:""}">${v}</div></div>`).join("");
+  $("#nToday").textContent = good.length; $("#nHot").textContent = D.hot.length || ""; $("#nAll").textContent = D.total; $("#nChan").textContent = D.channels.length;
+  drawToday(good); drawHot(); drawMap(); drawSeason(); drawTable(); drawChan();
+}
+function card(w){
+  const t = w.top || {};
+  return `<button class="wc" data-w="${esc(w.i)}">${thumb(t.id, fmt(t.v))}<div style="min-width:0">
+    <div class="nm">${esc(w.n)}<small>${esc(w.y)} · ${esc(w.g)}</small></div>
+    <div class="tgs">${tagsOf(w)}</div>
+    <div class="big"><b>${fmt(t.v)}</b>남의 최고 · 100만+ <b style="font-size:15px">${w.n100||0}</b>편</div>
+    <div class="why">${esc((w.why||[]).slice(1).join(" · "))}</div>
+    ${w.ans?`<div class="why">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</div>`:""}</div></button>`;
+}
+let todayN = 12;
+function drawToday(good){
+  $("#cToday").textContent = good.length;
+  $("#todayList").innerHTML = good.length ? good.slice(0, todayN).map(card).join("") : `<div class="empty">아직 없어요. 작품을 다 재면(첫날 몇 시간) 채워져요.</div>`;
+  $("#todayMore").classList.toggle("hidden", good.length <= todayN);
+  $("#todayMore").onclick = () => { todayN += 12; drawToday(good); bind(); };
+  bind();
+}
+function relCard(r){
+  const w = W[r.i]; if(!w) return "";
+  return `<button class="rl" data-w="${esc(w.i)}"><div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:4px 0">${stTag(w.st)} ${rkTag(w)}</div>
+    <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0} · ${esc(r.why)}</div></button>`;
+}
+function drawHot(){
+  const hs = D.hot.map(i=>W[i]).filter(w=>w && vis(w));
+  $("#cHot").textContent = hs.length;
+  $("#hotList").innerHTML = hs.length ? hs.map(w => { const h = w.hot[0]; return `<div class="hotrow">
+    <a class="hv" href="https://www.youtube.com/shorts/${esc(h.id)}" target="_blank" rel="noopener">${thumb(h.id)}<div style="min-width:0">
+      <div class="t">🔥 ${esc(w.n)}</div><div class="m"><b>${fmt(h.v)}</b> · ${ago(h.age)}<br>${esc(h.ch)}<br>${esc(h.t).slice(0,60)}</div>
+      <div class="tgs" style="margin-top:6px">${tagsOf(w)}</div></div></a>
+    <div><div class="rel-h">🍯 이어서 볼 연관작 ${w.rel.length}</div><div class="rels">${w.rel.map(relCard).join("") || '<div class="empty" style="padding:8px">같은 결·같은 채널 쪽에 들어갈 만한 작품이 아직 없어요</div>'}</div></div></div>`; }).join("")
+    : `<div class="empty">최근 3일 안에 10만 넘게 뜬 작품 쇼츠가 아직 없어요.<br>정답지 채널 ${D.channels.length}곳을 30분마다 지켜보고 있어요.</div>`;
+  bind();
+}
+const SIDES = [["all","전체"],["남","남자향"],["여","여자향"],["공통","공통"]];
+const gOpen = {};
+function drawMap(){
+  $("#sideChips").innerHTML = SIDES.map(([k,n]) => `<button class="chip ${opt.side===k?"on":""}" data-side="${k}">${n}</button>`).join("")
+    + `<button class="chip ${opt.good?"on":""}" id="goodOnly">들어갈 만한 것만</button>`;
+  document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { opt.side = b.dataset.side; saveOpt(); drawMap(); });
+  $("#goodOnly").onclick = () => { opt.good = !opt.good; saveOpt(); drawMap(); };
+  $("#gmap").innerHTML = D.gyeol.filter(g => opt.side==="all" || g.side===opt.side).map(g => {
+    let ids = g.ids.map(i=>W[i]).filter(w => w && vis(w) && (!opt.good || ["꿀통","심정지 재진입","후보"].includes(w.st)));
+    if(!ids.length) return "";
+    const lim = gOpen[g.k] ? 99 : 6;
+    return `<div class="gc"><h4>${esc(g.k)} <span class="badge">${g.side}</span>${g.pass_>=3?'<span class="tg s-honey" title="라필: 같은 결 3편 이상 → 결 채널로 시작 가능">결 채널 가능</span>':""}</h4>
+      <div class="d">${esc(g.d)}<br>들어가기 좋은 것 ${g.pass_}편 · 후보 ${g.cand}편</div>
+      ${ids.slice(0,lim).map((w,k) => `<div class="gi" data-w="${esc(w.i)}"><div class="no">${k+1}</div>${thumb((w.top||{}).id)}<div style="min-width:0">
+        <div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:3px 0">${stTag(w.st)} ${rkTag(w)}</div>
+        <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0}${w.gap!=null?` · 마지막 ${w.gap}일 전`:""}</div></div></div>`).join("")}
+      ${ids.length>lim?`<button class="mo" data-g="${esc(g.k)}">${ids.length-lim}편 더 보기</button>`:""}</div>`; }).join("");
+  document.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { gOpen[b.dataset.g] = 1; drawMap(); });
+  bind();
+}
+function drawSeason(){
+  $("#seasons").innerHTML = D.seasons.slice(0,6).map(s => {
+    const ws = D.works.filter(w => s.g.includes(w.g) && vis(w) && ["꿀통","심정지 재진입","후보"].includes(w.st)).sort(byGood).slice(0,4);
+    return `<div class="sc ${s.soon?"soon":""}"><div class="dd">${s.left<=0?"D-DAY":"D-"+s.left}</div><div class="n">${esc(s.n)}</div>
+      <div class="m">${esc(s.date)} · ${s.g.map(esc).join(", ")}${s.soon?" · 지금 준비할 때":""}</div>
+      <ul>${ws.map(w => `<li data-w="${esc(w.i)}">${stTag(w.st)} ${esc(w.n)} <span class="m">${fmt((w.top||{}).v)}</span></li>`).join("") || '<li class="m">이 결에서 들어갈 만한 작품이 아직 없어요</li>'}</ul></div>`; }).join("");
+  const iw = D.works.filter(w => w.issue && vis(w));
+  $("#issues").innerHTML = iw.length ? `<div class="h5">오늘의 흐름 구글 트렌드에 걸린 작품</div>` + iw.map(w => `<div class="tr" data-w="${esc(w.i)}" style="cursor:pointer"><div><div class="kw">${esc(w.n)} <small>${esc(w.issue)}</small></div><div class="tgs">${tagsOf(w)}</div></div></div>`).join("") : "";
+  bind();
+}
+const COLS = [["n","작품"],["g","결"],["d","종류·배급"],["st","상태"],["risk","저작권"],["n100","100만+"],["top","남의 최고"],["alive","6개월 생존"],["r60big","60일 50만+"],["gap","마지막 업로드"],["ht","#동영상"],["at","잰 때"]];
+function val(w,k){ return k==="top" ? (w.top||{}).v||0 : k==="ht" ? (w.ht||[])[0] ?? 1e12 : k==="st" ? RANK[w.st]*1e9-(w.n100||0) : k==="risk" ? RISK[w.risk] : k==="d" ? w.k+w.d : w[k] ?? -1; }
+function drawTable(){
+  const ws = D.works.filter(vis).sort((a,b) => { const x = val(a,opt.sort), y = val(b,opt.sort); return (x>y?1:x<y?-1:0)*(opt.asc?1:-1); });
+  $("#cAll").textContent = ws.length;
+  $("#tbl").innerHTML = `<thead><tr>${COLS.map(([k,n]) => `<th data-s="${k}" class="${opt.sort===k?"on":""}">${n}${opt.sort===k?(opt.asc?" ▲":" ▼"):""}</th>`).join("")}</tr></thead><tbody>`
+    + ws.map(w => `<tr data-w="${esc(w.i)}"><td><span class="w">${esc(w.n)}</span> <span class="m" style="color:var(--ink3)">${esc(w.y)}</span></td><td>${esc(w.g)}</td><td>${esc(w.k)} · ${esc(w.d)}</td>
+      <td>${stTag(w.st)}</td><td>${rkTag(w)}</td><td class="n">${w.n100??"—"}</td><td class="n">${fmt((w.top||{}).v)}</td><td class="n">${w.alive??"—"}</td>
+      <td class="n">${w.r60big??"—"}</td><td class="n">${w.gap!=null?w.gap+"일 전":"—"}</td><td class="n">${(w.ht||[])[0]!=null?w.ht[0].toLocaleString():"—"}</td><td>${esc(w.at||"—")}</td></tr>`).join("") + "</tbody>";
+  document.querySelectorAll("#tbl th").forEach(th => th.onclick = () => { const k = th.dataset.s; opt.asc = opt.sort===k ? !opt.asc : !["n100","top","alive","gap"].includes(k); opt.sort = k; drawTable(); });
+  bind();
+}
+function drawChan(){
+  $("#chans").innerHTML = D.channels.length ? D.channels.slice(0,150).map((c,k) => `<div class="ch-row"><div class="rank">${k+1}</div><div style="min-width:0">
+    <div class="nm"><a href="https://www.youtube.com/channel/${esc(c.cid)}/shorts" target="_blank" rel="noopener">${esc(c.t)}</a></div><div class="m">${c.works.map(esc).join(" · ")}</div></div><div class="c">${c.n100}</div></div>`).join("")
+    : `<div class="empty">작품을 재면서 100만+ 쇼츠를 낸 채널이 여기에 모여요.</div>`;
+  $("#feed").innerHTML = D.feed.length ? D.feed.map(f => `<a class="fd" href="https://www.youtube.com/shorts/${esc(f.id)}" target="_blank" rel="noopener">${thumb(f.id)}<div style="min-width:0">
+    <div class="t">${esc(f.t)}</div><div class="m"><b>${fmt(f.v)}</b> · ${ago(f.age)} · ${esc(f.ch)}</div><div class="m">${f.tags.slice(0,5).map(t=>"#"+esc(t)).join(" ")}</div></div></a>`).join("")
+    : `<div class="empty">정답지 채널이 3일 안에 10만 넘게 낸 영상 중 목록에 없는 작품이 여기에 떠요.</div>`;
+}
+function bind(){ document.querySelectorAll("[data-w]").forEach(el => el.onclick = () => openW(el.dataset.w)); }
+
+// ── 작품 자세히 ──
+function openW(i){
+  const w = W[i]; if(!w) return;
+  const q = encodeURIComponent(w.q.replace(/^#/,"")), t = encodeURIComponent(w.tag);
+  $("#mbody").innerHTML = `<button class="x" id="mx" aria-label="닫기">×</button>
+    <h2>${esc(w.n)}</h2><div class="sub">${esc(w.y)} · ${esc(w.k)} · ${esc(w.d)} · ${esc(w.g)} · 잰 때 ${esc(w.at||"아직")}</div>
+    <div class="tgs" style="margin-top:8px">${tagsOf(w)}</div>
+    <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li>${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
+    <div class="kv"><div><span>남의 최고</span><b>${fmt((w.top||{}).v)}</b></div><div><span>100만+</span><b>${w.n100??"—"}편</b></div><div><span>50만+</span><b>${w.n50??"—"}편</b></div>
+      <div><span>6개월 생존 100만+</span><b>${w.alive??"—"}편</b></div><div><span>최근 60일 올라온 것</span><b>${w.r60??"—"}편</b></div><div><span>그중 50만+</span><b>${w.r60big??"—"}편</b></div>
+      <div><span>마지막 업로드</span><b>${w.gap!=null?w.gap+"일 전":"—"}</b></div><div><span>#${esc(w.tag)}</span><b>${(w.ht||[])[0]!=null?w.ht[0].toLocaleString()+"개":"—"}</b></div></div>
+    <div class="links"><a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">유튜브 검색</a><a href="https://www.youtube.com/hashtag/${t}/shorts" target="_blank" rel="noopener">#${esc(w.tag)}</a>
+      ${w.ans?`<a href="https://www.youtube.com/channel/${esc(w.ans.cid)}/shorts" target="_blank" rel="noopener">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</a>`:""}</div>
+    ${w.hot&&w.hot.length?`<div class="h5">🔥 최근 3일 뜬 것</div><div class="vg">${w.hot.map(vcell).join("")}</div>`:""}
+    <div class="h5">남이 터뜨린 쇼츠 (조회수 순)</div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
+    ${w.rel&&w.rel.length?`<div class="h5">🍯 이어서 볼 연관작</div><div class="rels">${w.rel.map(relCard).join("")}</div>`:""}`;
+  $("#modal").classList.remove("hidden");
+  $("#mx").onclick = closeM; bind();
+}
+const vcell = v => `<a href="https://www.youtube.com/shorts/${esc(v.id)}" target="_blank" rel="noopener">${thumb(v.id, fmt(v.v))}<div class="t">${esc(v.t)}</div><div class="m">${esc(v.ch)} · ${ago(v.age)}</div></a>`;
+function closeM(){ $("#modal").classList.add("hidden"); }
+$("#modal").onclick = e => { if(e.target.id==="modal") closeM(); };
+document.addEventListener("keydown", e => { if(e.key==="Escape") closeM(); });
+start();
+</script>
+</body>
+</html>
