@@ -72,11 +72,15 @@ def matcher(w):
         nn = norm(nm)
         if nn:
             keys.append((nn, hashonly or len(nn) <= 2))
+    # 흔한 낱말 제목(사랑·친구·강릉…)은 검색어에 덧붙인 배우·감독 이름 중 하나도 같이 보여야 인정
+    extra = [e for e in (norm(x) for x in w["q"].lstrip("#").split()) if len(e) >= 2 and e not in {k for k, _ in keys}]
 
     def ok(title, desc="", tags=()):
         body = norm(title + " " + desc)
         ht = tags_in(title + " " + desc) | {norm(t) for t in tags}
         brk = {norm(x) for x in re.findall(r"[\[《<「『【(]([^\]》>」』】)]{1,30})[\]》>」』】)]", title + " " + desc)}
+        if extra and not any(e in body or e in ht for e in extra):
+            return False
         for nn, strict in keys:
             if nn in ht or nn in brk or (not strict and nn in body):
                 return True
