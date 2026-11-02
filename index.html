@@ -184,6 +184,26 @@ td .w{font-weight:700}
 .pl{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
 .calh{font-size:13px;font-weight:800;margin:14px 0 0;display:flex;gap:6px;align-items:center}
 
+/* 원클릭 제작 */
+.mk{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:8px;background:var(--sky1);border-radius:14px;padding:12px}
+.mk label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink3);font-weight:700}
+.mk select,.mk textarea,.mko input{font:inherit;font-size:13px;color:var(--ink);background:var(--card-solid);border:1px solid var(--line);border-radius:10px;padding:6px 9px;min-width:0}
+.mk textarea{grid-column:1/-1;min-height:54px;resize:vertical}
+.mk .row{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mk .btn{margin:0}
+.mkmsg{grid-column:1/-1;font-size:12.5px;color:var(--ink2);line-height:1.6}
+.mkmsg.bad{color:var(--hot)}
+.mkst{font-size:12px;color:var(--ink3)}
+.mko{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.mko:last-child{border-bottom:0}
+.mko .s{font-size:12px;font-weight:800;padding:3px 0;border-radius:999px;text-align:center;color:#fff;background:var(--weak);height:fit-content}
+.mko .s.on{background:var(--accent)}.mko .s.ok{background:var(--honey)}.mko .s.bad{background:var(--hot)}
+.mko .n{font-weight:800;font-size:14px}
+.mko .m{font-size:11.5px;color:var(--ink3);margin-top:2px;line-height:1.5}
+.mko .st{font-size:12.5px;color:var(--ink2);margin-top:4px;line-height:1.5;overflow-wrap:anywhere}
+.mko .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;align-items:center}
+.mko .act input{flex:1 1 220px}
+
 @media (max-width:900px){
   .hotrow{grid-template-columns:1fr}
   .cards{grid-template-columns:1fr}
@@ -217,6 +237,7 @@ td .w{font-weight:700}
     <nav class="nav">
       <a href="#today">◎ 오늘 뭐 만들까 <span class="cnt" id="nToday"></span></a>
       <a href="#entry">▲ 진입 성적표 <span class="cnt" id="nGo"></span></a>
+      <a href="#make" id="navMake">▶ 원클릭 제작 <span class="cnt" id="nMake"></span></a>
       <a href="#hot">✦ 막 뜨는 작품 <span class="cnt" id="nHot"></span></a>
       <a href="#rise">↯ 요즘 떡상 쇼츠 <span class="cnt" id="nRise"></span></a>
       <a href="#actor">★ 배우 타이밍 <span class="cnt" id="nAct"></span></a>
@@ -268,6 +289,9 @@ td .w{font-weight:700}
 
     <div class="sec-h" id="entry"><div><span class="eyebrow">ENTRY SCORE</span><h2>진입 성적표<em id="cEntry"></em></h2></div><div class="at">최근 30일 같은 작품 만든 채널 수가 적을수록 기회 · 100만이어도 식었으면 다시 만들 자리</div></div>
     <section class="card panel"><div class="bar" id="enChips"></div><div class="ens" id="enList"></div><button class="more hidden" id="enMore">더 보기</button></section>
+
+    <div class="sec-h" id="make"><div><span class="eyebrow">ONE-CLICK</span><h2>원클릭 제작 현황<em id="cMake"></em></h2></div><div class="at">작품 창의 «원클릭 제작»으로 주문 · 이 PC의 제작 도우미가 원클릭\제작법.md 대로 만듦</div></div>
+    <section class="card panel"><div class="bar"><button class="chip" id="mkConn">도우미 연결 확인</button><span class="mkst" id="mkState">PC에서 «원클릭 제작 도우미 켜기»를 켜 두면 여기에 만드는 중·완성이 떠요.</span></div><div id="mkList"></div></section>
 
     <div class="sec-h" id="hot"><div><span class="eyebrow">RISING + RELATED</span><h2>막 뜨는 작품 + 연관 꿀통<em id="cHot"></em></h2></div><div class="at">최근 3일 10만+ · 감시 채널 RSS + 작품 검색</div></div>
     <section class="card panel"><div id="hotList"></div></section>
@@ -383,6 +407,9 @@ function show(d){
   $("#bc").onclick = () => { opt.bc = !opt.bc; saveOpt(); show(D); };
   $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
   $("#q").oninput = e => { opt.q = e.target.value.trim(); draw(); };
+  $("#mkConn").onclick = mkRefresh; $("#navMake").onclick = () => { mkRefresh(); };
+  let mkUsed = null; try{ mkUsed = localStorage.getItem("yd_mk"); }catch(e){}
+  if(mkUsed && !mkTimer) mkRefresh();  // 한 번 연결해 본 PC 에서만 저절로 확인 (다른 기기에서 괜한 권한 창이 안 뜨게)
   draw();
   if(location.hash) document.querySelector(location.hash)?.scrollIntoView();
 }
@@ -603,6 +630,7 @@ function openW(i){
       <div><span>최근 30일 경쟁</span><b>${c.ch??0}곳 ${c.n??0}편</b></div><div><span>30일 최고</span><b>${fmt(c.m30||null)}</b></div></div>
     <div class="cmp">${esc(e.why||"")}${(e.how||[]).length?"<br>때: "+e.how.map(esc).join(" · "):""}${c.n?`<br>1위 몫 ${c.share}% · 지난 7일 ${c.r7}편${c.surge?" · 지난주 급증":""} · 검색·최근 업로드 표본이라 실제보다 적을 수 있음`:""}</div>
     ${(c.riv||[]).length?`<div class="h5">최근 30일 경쟁 채널</div><div class="riv">${c.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    ${mkForm(w)}
     <div class="links" style="margin-top:14px"><a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">유튜브 검색</a><a href="https://www.youtube.com/hashtag/${t}/shorts" target="_blank" rel="noopener">#${esc(w.tag)}</a>
       ${w.ans?`<a href="https://www.youtube.com/channel/${esc(w.ans.cid)}/shorts" target="_blank" rel="noopener">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</a>`:""}
       <a href="https://ko.wikipedia.org/w/index.php?search=${nm}" target="_blank" rel="noopener">위키백과</a><a href="https://namu.wiki/w/${nm}" target="_blank" rel="noopener">나무위키</a>
@@ -611,7 +639,89 @@ function openW(i){
     <div class="h5">남이 터뜨린 쇼츠 (조회수 순)</div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
     ${w.rel&&w.rel.length?`<div class="h5">🍯 이어서 볼 연관작</div><div class="rels">${w.rel.map(relCard).join("")}</div>`:""}`;
   $("#modal").classList.remove("hidden");
-  $("#mx").onclick = closeM; bind();
+  $("#mx").onclick = closeM; bind(); mkBind(w);
+}
+
+// ── 원클릭 제작: 이 PC의 «원클릭 제작 도우미»(원클릭\제작도우미.py, 127.0.0.1:8790)에 주문 ──
+const MK = "http://127.0.0.1:8790";
+const MK_CH = ["조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠"];
+const MK_WAY = ["채널 기본","1인칭 나레이션","감동 반전형","사이다(악역 최후)"];
+const MK_S = {"대기":"", "제작 중":"on", "완성":"ok", "실패":"bad", "멈춤":""};
+const mkDefCh = w => /감동/.test(w.g) ? "한 편의 위로" : (/사이다/.test(w.g) || ["미드","외화"].includes(w.k)) ? "사이다 시네"
+  : ["OTT","방송"].includes(w.k) ? "드라마쇼츠" : "조폭코미디";
+function mkPayload(w, f){
+  const {i,n,y,g,d,k,q,tag,st,risk,riskwhy,en,cp,top,vids,hot,ans} = w;
+  const same = D.works.filter(o => o.g===w.g && o.i!==w.i && ["GO","차선"].includes(enOf(o).v)).sort(byEntry).slice(0,8)
+    .map(o => ({n:o.n, y:o.y, d:o.d, k:o.k, q:o.q, en:{v:enOf(o).v, s:enOf(o).s, why:enOf(o).why}, top:o.top}));
+  return {work:{i,n,y,g,d,k,q,tag,st,risk,riskwhy,en,cp,top,vids,hot,ans}, ch:f.ch, way:f.way, branch:f.branch, n:+f.n, memo:f.memo, same_gyeol:same};
+}
+function mkForm(w){
+  const e = enOf(w), sel = (a, v) => a.map(x => `<option ${x===v?"selected":""}>${esc(x)}</option>`).join("");
+  return `<div class="h5">▶ 원클릭 제작</div><div class="mk">
+    <label>채널(틀)<select id="mkCh">${sel(MK_CH, mkDefCh(w))}</select></label>
+    <label>구성<select id="mkWay">${sel(MK_WAY, "채널 기본")}</select></label>
+    <label>갈래<select id="mkBr">${sel(["이 작품","같은 결 다른 작품"], "이 작품")}</select></label>
+    <label>편수<select id="mkN">${sel(["1","2","3"], "1")}</select></label>
+    <textarea id="mkMemo" placeholder="하고 싶은 말 (비워도 돼요) — 예: 결말 장면으로, 40초 안쪽"></textarea>
+    <div class="row"><button class="btn" id="mkGo">제작 주문 보내기</button><button class="chip" id="mkCopy">주문 글 복사</button></div>
+    <div class="mkmsg ${e.v==="피함"?"bad":""}" id="mkMsg">${e.v==="피함" ? "진입 판정이 «피함»이라 이 작품으로는 안 만들어요 — 갈래를 «같은 결 다른 작품»으로 하면 같은 결의 GO 작품으로 만들어요."
+      : "이 PC에서 «원클릭 제작 도우미 켜기»가 켜져 있으면 바로 만들기 시작해요. 휴대폰이면 «주문 글 복사»로 클로드 코드에 붙여 넣으세요."}</div></div>`;
+}
+function mkBind(w){
+  const f = () => ({ch:$("#mkCh").value, way:$("#mkWay").value, branch:$("#mkBr").value, n:$("#mkN").value, memo:$("#mkMemo").value.trim()});
+  const msg = (t, bad) => { $("#mkMsg").textContent = t; $("#mkMsg").classList.toggle("bad", !!bad); };
+  $("#mkCopy").onclick = async () => {
+    const t = "[원클릭 주문] D:\\1월억로드\\영상\\원클릭\\제작법.md 대로 만들어줘. 묻지 말고 끝까지.\n" + JSON.stringify(mkPayload(w, f()), null, 1);
+    try{ await navigator.clipboard.writeText(t); msg("주문 글을 복사했어요 — 클로드 코드에 붙여 넣으면 제작법대로 만들어요."); }
+    catch(e){ msg("복사가 막혔어요 — 브라우저 권한을 확인해 주세요.", true); } };
+  $("#mkGo").onclick = async () => {
+    msg("보내는 중…");
+    try{
+      const r = await fetch(MK + "/order", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(mkPayload(w, f()))});
+      const j = await r.json();
+      if(!r.ok) return msg(j.err || "주문이 안 들어갔어요", true);
+      msg(`주문 받았어요 (${j.id}) — «원클릭 제작 현황»에서 진행을 볼 수 있어요.`);
+      try{ localStorage.setItem("yd_mk", "1"); }catch(e){}
+      mkRefresh();
+    }catch(e){ msg("PC의 제작 도우미에 닿지 않아요 — «원클릭 제작 도우미 켜기»를 켜 주세요. 휴대폰이면 «주문 글 복사»를 쓰세요.", true); }
+  };
+}
+let mkTimer = null;
+async function mkFetch(p, init){
+  const c = new AbortController(), t = setTimeout(() => c.abort(), 4000);
+  try{ const r = await fetch(MK + p, {...(init||{}), signal:c.signal}); return await r.json(); } finally{ clearTimeout(t); }
+}
+function mkRow(o){
+  const r = o.result || {}, w = o.work || {}, live = o.state==="대기" || o.state==="제작 중";
+  return `<div class="mko"><div class="s ${MK_S[o.state]||""}">${esc(o.state)}</div><div style="min-width:0">
+    <div class="n">${o.fix?"✎ 고치기 · ":""}${esc(w.n)} <span class="m">${esc(o.ch)} · ${esc(o.way)} · ${esc(o.branch)}${o.n>1?` · ${o.n}편`:""}</span></div>
+    <div class="m">${esc(o.at)} 주문${o.started?` · ${esc(o.started)} 시작`:""}${o.min!=null?` · ${o.min}분`:""}${o.memo?` · 메모 «${esc(o.memo)}»`:""}${o.fix?` · «${esc(o.fix)}»`:""}</div>
+    <div class="st">${o.state==="완성" ? `<b>${esc(String(r.title||"").replace(/\n/g," / "))}</b> · ${esc(r.sec??"?")}초${r.scene?"<br>"+esc(r.scene):""}${r.checks?"<br>검수: "+esc(r.checks):""}${r.note?"<br>"+esc(r.note):""}` : esc(o.step||"")}</div>
+    <div class="act">${o.state==="완성" ? `<button class="chip" data-mo="${esc(o.id)}">폴더 열기</button><input data-fx="${esc(o.id)}" placeholder="말로 고치기 — 예: 첫 장면 더 세게"><button class="chip" data-fs="${esc(o.id)}">고쳐 줘</button>` : ""}${live ? `<button class="chip" data-mc="${esc(o.id)}">멈추기</button>` : ""}</div></div></div>`;
+}
+async function mkRefresh(){
+  try{
+    const ping = await mkFetch("/ping"), os = await mkFetch("/orders");
+    try{ localStorage.setItem("yd_mk", "1"); }catch(e){}
+    $("#mkState").textContent = `도우미 연결됨 · ${ping.login ? "클로드 코드 로그인 됨" : "클로드 코드 로그인 필요 — 도우미 창을 닫고 다시 켜면 로그인 화면이 떠요"} · 기다리는 주문 ${ping.queue}`;
+    $("#nMake").textContent = os.filter(o => o.state==="대기" || o.state==="제작 중").length || "";
+    $("#cMake").textContent = os.length || "";
+    const typing = [...document.querySelectorAll("#mkList input")].some(x => x.value || x===document.activeElement);
+    if(!typing){
+      $("#mkList").innerHTML = os.length ? os.map(mkRow).join("") : `<div class="empty">아직 주문이 없어요. 작품을 열고 «원클릭 제작»을 눌러 보세요.</div>`;
+      const post = (p, d) => mkFetch(p, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)}).catch(() => null);
+      document.querySelectorAll("[data-mo]").forEach(b => b.onclick = () => post("/open", {id:b.dataset.mo}));
+      document.querySelectorAll("[data-mc]").forEach(b => b.onclick = async () => { if(confirm("이 주문을 멈출까요?")){ await post("/cancel", {id:b.dataset.mc}); mkRefresh(); } });
+      document.querySelectorAll("[data-fs]").forEach(b => b.onclick = async () => {
+        const inp = document.querySelector(`[data-fx="${b.dataset.fs}"]`), t = inp.value.trim();
+        if(!t) return inp.focus();
+        inp.value = ""; await post("/fix", {id:b.dataset.fs, text:t}); mkRefresh(); });
+    }
+    if(!mkTimer) mkTimer = setInterval(mkRefresh, 8000);
+  }catch(e){
+    if(mkTimer){ clearInterval(mkTimer); mkTimer = null; }
+    $("#mkState").textContent = "PC의 제작 도우미에 닿지 않아요 — 이 PC에서 «원클릭 제작 도우미 켜기»를 켠 뒤 «도우미 연결 확인»을 눌러 주세요.";
+  }
 }
 const vcell = v => `<a href="https://www.youtube.com/shorts/${esc(v.id)}" target="_blank" rel="noopener">${thumb(v.id, fmt(v.v))}<div class="t">${esc(v.t)}</div><div class="m">${esc(v.ch)} · ${ago(v.age)}</div></a>`;
 function closeM(){ $("#modal").classList.add("hidden"); }
