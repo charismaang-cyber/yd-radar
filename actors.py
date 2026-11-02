@@ -11,6 +11,7 @@ UA = {"User-Agent": "yd-radar/0.1 (personal dashboard; https://github.com/charis
 WIKI = "https://ko.wikipedia.org/w/api.php"
 OTT = ("넷플릭스", "티빙", "TVING", "디즈니", "쿠팡플레이", "웨이브", "wavve", "왓챠", "애플 TV", "프라임 비디오", "U+")
 LINK = re.compile(r"\[\[([^\]|#]+)(?:\|([^\]]*))?\]\]")
+VER = 2  # 받는 방식이 바뀌면 올린다 → 다음 회차에 바로 새로 받음 (2: 지난 영화 없는 작품도 남김 — 신작 달력)
 
 
 def api(**p):
@@ -305,6 +306,6 @@ def refresh(cfg, log, today=None):
                 films_out[k] = info
             t.setdefault("leads", []).append({"a": lead, "n": short(a["t"]) if a else short(lead), "films": [k for k, _ in fs]})
         t.pop("cast")
-    titles = [t for t in titles if any(l["films"] for l in t["leads"])]
-    log(f"배우 타이밍: 주연 {len(actors)}명 · 지난 영화 {len(films_out)}편 · 쓸 만한 작품 {len(titles)}편")
-    return {"at": today.isoformat(), "titles": titles, "films": films_out}
+    # 지난 영화가 없는 작품도 남긴다 — 신작 달력에 쓴다(배우 타이밍엔 지난 영화 있는 것만 나옴)
+    log(f"배우 타이밍: 주연 {len(actors)}명 · 지난 영화 {len(films_out)}편 · 쓸 만한 작품 {sum(any(l['films'] for l in t['leads']) for t in titles)}/{len(titles)}편")
+    return {"at": today.isoformat(), "v": VER, "titles": titles, "films": films_out}

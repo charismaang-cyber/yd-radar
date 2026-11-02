@@ -5,7 +5,7 @@
    깃허브 Actions(.github/workflows/scan.yml)가 30분마다 부른다.
    사용: python scan.py --out site --once [--limit N] [--all]
    비밀번호: 환경변수 RADAR_PASSWORD → 없으면 password.txt / 유튜브 키: YOUTUBE_API_KEY → 없으면 youtube_key.txt (둘 다 저장소에 안 올림)"""
-import os, re, sys, json, time, argparse, urllib.request
+import os, re, sys, json, math, time, argparse, urllib.request
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone, timedelta
 import yt, lock, actors, discover
@@ -15,7 +15,7 @@ if sys.stdout:
 HERE = os.path.dirname(os.path.abspath(__file__))
 KST = timezone(timedelta(hours=9))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
-R, RUN = CFG["rule"], CFG["run"]
+R, RUN, E = CFG["rule"], CFG["run"], CFG["entry"]
 ST_RANK = {"꿀통": 0, "심정지 재진입": 1, "막 뜸": 2, "후보": 3, "경쟁 중": 4, "수요 약함": 5, "쇼츠 거의 없음": 6, "아직": 7}
 # 방송사·배급사·OTT 공식 채널 (제3자 기록에서 뺀다) — 영드짜\tools\step2_shorts.py 에서 옮김
 OFFICIAL = re.compile(r"(SBS|KBS|MBC|tvN|JTBC|TV\s?CHOSUN|TV조선|채널A|MBN|ENA|OCN|Netflix|넷플릭스|Disney|디즈니|wavve|웨이브|TVING|티빙|"
@@ -241,9 +241,74 @@ def judge(w, rec, now):
     pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
     return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
             "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
+            "r60m": sum(v[4] >= R["big"] for v in r60), "cp": compete(vs),
             "top": pv(top) if top else None, "ans": {"cid": ans[0][0][0], "ch": ans[0][0][1], "n": ans[0][1]} if ans else None,
             "hot": [pv(v) for v in hot[:4]], "vids": [pv(v) for v in vs[:8]], "ht": rec["ht"],
             "beginner": hv is not None and hv < R["hashtag_beginner"], "off": rec.get("off", [])}
+
+
+def compete(vs):
+    """경쟁강도(아모르 꿀통레이더 STEP 4): 최근 30일에 남이 올린 쇼츠 — 채널 수·편수·1위 몫·지난주 급증.
+       검색·최근 업로드 표본이라 실제보다 적게 잡힐 수 있다(하한)."""
+    days, wk = E["comp_days"], E["surge_days"]
+    r30 = [v for v in vs if v[7] is not None and v[7] <= days]
+    by, best, names = Counter(), {}, {}
+    for v in r30:
+        by[v[3]] += 1; best[v[3]] = max(best.get(v[3], 0), v[4]); names[v[3]] = v[2]
+    r7 = sum(v[7] <= wk for v in r30)
+    prior = (len(r30) - r7) * wk / (days - wk)  # 이전 23일을 한 주 몫으로
+    surge = r7 >= 2 and r7 > 2 * prior
+    score = min(100, E["w_channel"] * len(by) + E["w_post"] * len(r30) + (E["w_surge"] if surge else 0))
+    return {"s": score, "ch": len(by), "n": len(r30), "r7": r7, "surge": surge,
+            "share": round(100 * by.most_common(1)[0][1] / len(r30)) if r30 else 0,
+            "m30": max((v[4] for v in r30), default=0),
+            "riv": [{"ch": names[c], "cid": c, "n": n, "v": best[c]} for c, n in by.most_common(5)]}
+
+
+def entry(j, timing):
+    """진입 판정(아모르 STEP 5): 막 튀었나? 블루오션인가? 둘 중 하나면 GO.
+       점수 = 수요 40% + 온도 20% + 여유(100-경쟁강도) 40% - 저작권 감점. 상태(책 기준)와 따로 본다."""
+    if j["st"] == "아직":
+        return {"v": "미확인", "s": None, "why": "아직 안 잼"}
+    cp, top = j.get("cp") or {}, (j.get("top") or {}).get("v") or 0
+    clamp = lambda x: max(0, min(100, x))
+    dem = clamp(40 * math.log10(top / 1e5) + 3 * min(j.get("n100", 0), 5)) if top else 0  # 10만 0 · 100만 40 · 1000만 80
+    tmp, hows = (clamp(30 * math.log10(cp["m30"] / 1e4)) if cp.get("m30") else 0), []  # 30일 최고 10만 30 · 100만 60
+    if j.get("hot"):
+        tmp += 20; hows.append(f"{ago_txt(j['hot'][0]['age'])} {fmt_v(j['hot'][0]['v'])} 뜸")
+    tmp += timing.get(j["i"], (0, []))[0]
+    hows += timing.get(j["i"], (0, []))[1]
+    tmp = clamp(tmp)
+    comp = cp.get("s", 0)
+    pen = {"높음": 15, "방송": 15, "중간": 5}.get(j.get("risk"), 0)
+    s = round(0.4 * dem + 0.2 * tmp + 0.4 * (100 - comp) - pen, 1)
+    c30 = f"최근 30일 다른 채널 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편"
+    demand = j.get("n100", 0) >= 1 or j.get("n50", 0) >= 2
+    popped = bool(j.get("hot")) or bool(hows) or cp.get("m30", 0) >= R["big"]
+    if j["st"] == "쇼츠 거의 없음":
+        v, why = "피함", "쇼츠 5개 미만 — 배급사가 지운 것일 수 있음"
+    elif j.get("risk") in ("높음", "방송"):
+        v, why = "피함", ("방송사 작품 — 우리 규칙 X" if j["risk"] == "방송" else "저작권 높음 — " + j.get("riskwhy", ""))
+    elif comp >= E["avoid_comp"]:
+        v, why = "피함", f"붐빔 · {c30}" + (" · 지난주 급증" if cp.get("surge") else "")
+    elif not demand:
+        v, why = "보류", f"수요 미검증 · 남의 최고 {fmt_v(top)}"
+    elif cp.get("ch", 0) <= E["blue_max_ch"] and cp.get("n", 0) <= E["blue_max_posts"]:
+        v, why = "GO", f"블루오션 · {c30} · 남의 최고 {fmt_v(top)}"
+    elif popped and comp < E["go_max_comp"]:
+        v, why = "GO", "막 튐 · " + " · ".join((hows or [f"30일 최고 {fmt_v(cp.get('m30', 0))}"])[:2]) + f" · 경쟁 {cp.get('ch', 0)}곳 {cp.get('n', 0)}편"
+    else:
+        v, why = "차선", f"{c30} · 경쟁강도 {comp}"
+    return {"v": v, "s": s, "dem": round(dem), "tmp": round(tmp), "cmp": comp, "why": why, "how": hows}
+
+
+def fmt_v(v):
+    v = v or 0
+    return f"{v / 1e8:.1f}억".replace(".0억", "억") if v >= 1e8 else f"{round(v / 1e4):,}만" if v >= 1e4 else f"{v:,}"
+
+
+def ago_txt(d):
+    return f"{round(d * 24)}시간 전" if d < 1 else f"{round(d)}일 전"
 
 
 # ── 정답지 채널 RSS → 막 뜨는 작품 ─────────────────────────────
@@ -323,24 +388,43 @@ def issues(works, log):
     return out
 
 
+PLAT = [("넷플릭스", r"넷플릭스|netflix"), ("티빙", r"티빙|tving"), ("디즈니+", r"디즈니|disney"), ("쿠팡플레이", r"쿠팡"),
+        ("웨이브", r"웨이브|wavve"), ("왓챠", r"왓챠|watcha"), ("애플TV+", r"애플|apple")]
+
+
+def plat_of(t):
+    if t["kind"] == "영화":
+        return "극장"
+    for n, pat in PLAT:
+        if re.search(pat, t["ch"], re.I):
+            return n
+    return "OTT" if t["ott"] else (re.split(r"[,·/ ]", t["ch"].strip())[0] or "방송사")
+
+
 def actor_view(ac, ids, J, today):
-    """배우 타이밍: 끝나지 않은 드라마·영화마다 주연과 그 지난 영화(작품 id). 작품에도 어느 배우·작품 덕인지 붙인다."""
-    out = []
+    """배우 타이밍: 끝나지 않은 드라마·영화마다 주연과 그 지난 영화(작품 id). 작품에도 어느 배우·작품 덕인지 붙인다.
+       신작 달력(아모르 시즌·오픈): 최근 공개 ~ 곧 공개 작품 전부 — 주연의 지난 영화가 목록에 없어도 넣는다.
+       → (배우 타이밍, 신작 달력, {작품 id: (온도 더할 값, [이유])})"""
+    out, cal, timing = [], [], {}
     for t in (ac or {}).get("titles", []):
         s, e = date.fromisoformat(t["start"]), date.fromisoformat(t["end"])
         if e < today:
             continue
         d = (s - today).days
         leads = [{"n": l["n"], "w": list(dict.fromkeys(ids[f] for f in l["films"] if ids.get(f) in J))} for l in t["leads"]]
+        cal.append({k: t[k] for k in ("t", "n", "kind", "ch", "ott", "start", "end", "est")} | {"d": d, "p": plat_of(t), "leads": leads})
         leads = [l for l in leads if l["w"]]
         if not leads:
             continue
         out.append({k: t[k] for k in ("n", "kind", "ch", "ott", "start", "end", "est")} | {"d": d, "leads": leads})
         when = f"D-{d}" if d > 0 else "D-DAY" if d == 0 else f"{-d // 7 + 1}주차"
+        prime = -21 <= d <= 7  # 첫 공개 1주 전 ~ 3주차
         for l in leads:
             for i in l["w"]:
                 J[i].setdefault("act", []).append(f"{l['n']} «{t['n']}» {when}")
-    return sorted(out, key=lambda x: x["start"])
+                b, why = timing.get(i, (0, []))
+                timing[i] = (max(b, 25 if prime else 10), why + ([f"배우 타이밍 {l['n']} «{t['n']}» {when}"] if prime else []))
+    return sorted(out, key=lambda x: x["start"]), sorted(cal, key=lambda x: x["start"]), timing
 
 
 def build(st, works, iss, mode_note, errs, film_ids=None):
@@ -407,11 +491,41 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
                      "works": sorted({J[wi]["n"] for wi in chan_works.get(c, ()) if wi in J})[:8]}
                     for c, v in st.get("watch", {}).items()), key=lambda x: -x["n100"])
     today = kst(now).date()
-    act = actor_view(st.get("actors"), film_ids or {}, J, today)
-    return {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "mode": mode_note, "err": errs[-12:], "rule": R,
+    act, cal, timing = actor_view(st.get("actors"), film_ids or {}, J, today)
+    seas = season_list(today)
+    # 온도에 더할 '때': 배우 타이밍(위) · 다가오는 시즌의 결 · 오늘의 흐름 구글 트렌드
+    for s in seas:
+        if s["soon"]:
+            for j in J.values():
+                if j["g"] in s["g"]:
+                    b, why = timing.get(j["i"], (0, []))
+                    timing[j["i"]] = (b + 10, why + [f"{s['n']} D-{s['left']}"])
+    for j in J.values():
+        if j.get("issue"):
+            b, why = timing.get(j["i"], (0, []))
+            timing[j["i"]] = (b + 15, why + [f"구글 트렌드 «{j['issue']}»"])
+        j["en"] = entry(j, timing)
+    # 요즘 떡상 쇼츠(아모르 데일리 떡상쇼츠): 최근 30일 남의 10만+ 쇼츠를 작품과 함께
+    rise, seen = [], set()
+    for wi, rec in st["works"].items():
+        if wi not in J:
+            continue
+        for v in rec["v"]:
+            a = age_days(v[5], now)
+            if v[6] or a is None or a > E["rise_days"] or v[4] < E["rise_views"] or v[0] in seen:
+                continue
+            seen.add(v[0])
+            rise.append({"id": v[0], "t": v[1], "ch": v[2], "v": v[4], "age": round(a, 1), "w": wi})
+    for wi, rows in rss_hot.items():
+        for r in rows:
+            if wi in J and r["id"] not in seen:
+                seen.add(r["id"])
+                rise.append({"id": r["id"], "t": r["t"], "ch": r["ch"], "v": r["v"], "age": r["age"], "w": wi})
+    return {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "mode": mode_note, "err": errs[-12:], "rule": R, "entry": E,
             "works": list(J.values()), "hot": hot, "feed": sorted(feed, key=lambda r: -r["v"])[:60],
-            "actors": act, "actors_at": (st.get("actors") or {}).get("at"),
-            "gyeol": gy, "seasons": season_list(today), "channels": chans,
+            "rise": sorted(rise, key=lambda r: -r["v"])[:E["rise_max"]],
+            "actors": act, "cal": cal, "actors_at": (st.get("actors") or {}).get("at"),
+            "gyeol": gy, "seasons": seas, "channels": chans,
             "scanned": sum(1 for w in works if w["i"] in st["works"]), "total": len(works),
             "units": st["units"].get(today.isoformat(), 0)}
 
@@ -449,7 +563,7 @@ def main():
     st.setdefault("err", [])
     now, today = now_min(), kst(now_min()).date().isoformat()
     AC = CFG.get("actors")
-    if AC and now - (st.get("actors") or {}).get("m", 0) >= AC["refresh_hours"] * 60:
+    if AC and (now - (st.get("actors") or {}).get("m", 0) >= AC["refresh_hours"] * 60 or (st.get("actors") or {}).get("v") != actors.VER):
         try:
             st["actors"] = dict(actors.refresh(AC, log, kst(now).date()), m=now)
         except Exception as e:
