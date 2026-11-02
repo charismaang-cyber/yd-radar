@@ -539,7 +539,8 @@ def main():
                        (os.path.join(a.out, "data.enc.js"), "window.YD_BOX = " + json.dumps(lock.seal(data, pw)) + ";\n"),
                        (os.path.join(a.out, "status.json"), json.dumps({"at": data["at"], "mode": note, "done": done,
                                                                          "scanned": data["scanned"], "total": data["total"],
-                                                                         "errors": len(st["err"])}, ensure_ascii=False))):
+                                                                         "errors": len(st["err"]), "errors_today": sum(e.startswith(today) for e in st["err"]),
+                                                                         "units_today": st["units"].get(today, 0)}, ensure_ascii=False))):
         with open(path + ".tmp", "w", encoding="utf-8") as f:
             f.write(body)
         os.replace(path + ".tmp", path)

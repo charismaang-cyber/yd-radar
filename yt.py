@@ -106,7 +106,12 @@ def search(query, pages=2, sleep=1.2):
     """검색 한 번으로 두 가지를 받는다.
        shorts = 'Shorts' 칩(관련도순, 남이 터뜨린 쇼츠) / recent = '최근에 업로드된 동영상' 칩(날짜순, 지금 올리는 사람)
        조회수·날짜·채널은 videos.list 로 따로 채운다."""
-    d = initial_data(fetch("https://www.youtube.com/results?search_query=" + urllib.parse.quote(query) + "&hl=ko&gl=KR"))
+    d = None
+    for i in range(3):  # 가끔 자료 없는 화면이 온다(막힘 아님) → 조금 쉬었다 다시
+        d = initial_data(fetch("https://www.youtube.com/results?search_query=" + urllib.parse.quote(query) + "&hl=ko&gl=KR"))
+        if d:
+            break
+        time.sleep(2 + 2 * i)
     if not d:
         raise Blocked("no ytInitialData")
     chips = {}
