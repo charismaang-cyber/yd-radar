@@ -737,7 +737,8 @@ function addBind(w){
 // 도우미가 띄운 레이더(127.0.0.1:87xx)면 같은 주소로 — 인터넷 주소(github.io)에선 브라우저가 내 PC 요청을 막을 수 있음
 const MK_LOCAL = /^http:\/\/(127\.0\.0\.1|localhost):87\d\d$/.test(location.origin);
 const MK = MK_LOCAL ? location.origin : "http://127.0.0.1:8790";
-const MK_CH = ["조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠"];
+const MK_CH = ["조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠",
+  "억스트라·드라마 짜집기","억스트라·눈알쨉쨉이형","억스트라·감동형","억스트라·클래식음악형"];  // 억스트라 = 그 방식 지침 통째로 (원클릭\제작법.md 4-2)
 const MK_WAY = ["채널 기본","1인칭 나레이션","감동 반전형","사이다(악역 최후)"];
 const MK_S = {"대기":"", "제작 중":"on", "완성":"ok", "실패":"bad", "멈춤":""};
 const mkDefCh = w => /감동/.test(w.g) ? "한 편의 위로" : (/사이다/.test(w.g) || ["미드","외화"].includes(w.k)) ? "사이다 시네"
@@ -791,7 +792,7 @@ function mkRow(o){
   return `<div class="mko"><div class="s ${MK_S[o.state]||""}">${esc(o.state)}</div><div style="min-width:0">
     <div class="n">${o.fix?"✎ 고치기 · ":""}${esc(w.n)} <span class="m">${esc(o.ch)} · ${esc(o.way)} · ${esc(o.branch)}${o.n>1?` · ${o.n}편`:""}</span></div>
     <div class="m">${esc(o.at)} 주문${o.started?` · ${esc(o.started)} 시작`:""}${o.min!=null?` · ${o.min}분`:""}${o.memo?` · 메모 «${esc(o.memo)}»`:""}${o.fix?` · «${esc(o.fix)}»`:""}</div>
-    <div class="st">${o.state==="완성" ? `<b>${esc(String(r.title||"").replace(/\n/g," / "))}</b> · ${esc(r.sec??"?")}초${r.scene?"<br>"+esc(r.scene):""}${r.checks?"<br>검수: "+esc(r.checks):""}${r.note?"<br>"+esc(r.note):""}` : esc(o.step||"")}</div>
+    <div class="st">${o.state==="완성" ? `<b>${esc(String(r.title||"").replace(/\n/g," / "))}</b> · ${esc(r.sec??"?")}초${r.scene?"<br>"+esc(r.scene):""}${Array.isArray(r.checks) ? `<br>검수 ${r.checks.filter(c => c["결과"]!=="실패").length}/${r.checks.length} 통과` : r.checks ? "<br>검수: "+esc(r.checks) : ""}${r.note?"<br>"+esc(r.note):""}` : esc(o.step||"")}</div>
     <div class="act">${o.state==="완성" ? `<button class="chip" data-mo="${esc(o.id)}">폴더 열기</button><input data-fx="${esc(o.id)}" placeholder="말로 고치기 — 예: 첫 장면 더 세게"><button class="chip" data-fs="${esc(o.id)}">고쳐 줘</button>` : ""}${live ? `<button class="chip" data-mc="${esc(o.id)}">멈추기</button>` : ""}</div></div></div>`;
 }
 async function mkRefresh(){
