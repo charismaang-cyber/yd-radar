@@ -434,7 +434,7 @@ function show(d){
   $("#sq").onfocus = () => { if($("#sq").value.trim()) drawSearch(); };
   $("#mkConn").onclick = mkRefresh; $("#navMake").onclick = () => { mkRefresh(); };
   let mkUsed = null; try{ mkUsed = localStorage.getItem("yd_mk"); }catch(e){}
-  if(mkUsed && !mkTimer) mkRefresh();  // 한 번 연결해 본 PC 에서만 저절로 확인 (다른 기기에서 괜한 권한 창이 안 뜨게)
+  if((MK_LOCAL || mkUsed) && !mkTimer) mkRefresh();  // 도우미가 띄운 화면이거나 한 번 연결해 본 PC 에서만 저절로 확인 (다른 기기에서 괜한 권한 창이 안 뜨게)
   draw();
   if(location.hash) document.querySelector(location.hash)?.scrollIntoView();
 }
@@ -733,7 +733,9 @@ function addBind(w){
 }
 
 // ── 원클릭 제작: 이 PC의 «원클릭 제작 도우미»(원클릭\제작도우미.py, 127.0.0.1:8790)에 주문 ──
-const MK = "http://127.0.0.1:8790";
+// 도우미가 띄운 레이더(127.0.0.1:87xx)면 같은 주소로 — 인터넷 주소(github.io)에선 브라우저가 내 PC 요청을 막을 수 있음
+const MK_LOCAL = /^http:\/\/(127\.0\.0\.1|localhost):87\d\d$/.test(location.origin);
+const MK = MK_LOCAL ? location.origin : "http://127.0.0.1:8790";
 const MK_CH = ["조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠"];
 const MK_WAY = ["채널 기본","1인칭 나레이션","감동 반전형","사이다(악역 최후)"];
 const MK_S = {"대기":"", "제작 중":"on", "완성":"ok", "실패":"bad", "멈춤":""};
@@ -755,7 +757,8 @@ function mkForm(w){
     <textarea id="mkMemo" placeholder="하고 싶은 말 (비워도 돼요) — 예: 결말 장면으로, 40초 안쪽"></textarea>
     <div class="row"><button class="btn" id="mkGo">제작 주문 보내기</button><button class="chip" id="mkCopy">주문 글 복사</button></div>
     <div class="mkmsg ${e.v==="피함"?"bad":""}" id="mkMsg">${e.v==="피함" ? "진입 판정이 «피함»이라 이 작품으로는 안 만들어요 — 갈래를 «같은 결 다른 작품»으로 하면 같은 결의 GO 작품으로 만들어요."
-      : "이 PC에서 «원클릭 제작 도우미 켜기»가 켜져 있으면 바로 만들기 시작해요. 휴대폰이면 «주문 글 복사»로 클로드 코드에 붙여 넣으세요."}</div></div>`;
+      : MK_LOCAL ? "누르면 이 PC의 도우미가 바로 만들기 시작해요. 진행은 왼쪽 «원클릭 제작» 현황에서 봐요."
+      : "바탕화면 «원클릭 제작 도우미»를 켜면 열리는 레이더(127.0.0.1)에서 누르면 바로 만들어요. 여기(인터넷 주소)서는 브라우저가 막을 수 있어요 — 휴대폰이면 «주문 글 복사»로 클로드 코드에 붙여 넣으세요."}</div></div>`;
 }
 function mkBind(w){
   const f = () => ({ch:$("#mkCh").value, way:$("#mkWay").value, branch:$("#mkBr").value, n:$("#mkN").value, memo:$("#mkMemo").value.trim()});
