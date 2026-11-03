@@ -313,7 +313,7 @@ td .w{font-weight:700}
     <section class="card panel"><div class="bar" id="enChips"></div><div class="ens" id="enList"></div><button class="more hidden" id="enMore">더 보기</button></section>
 
     <div class="sec-h mkonly" id="make"><div><span class="eyebrow">ONE-CLICK</span><h2>원클릭 제작 현황<em id="cMake"></em></h2></div><div class="at">작품 창의 «원클릭 제작»으로 주문 · 이 PC의 제작 도우미가 원클릭\제작법.md 대로 만듦</div></div>
-    <section class="card panel mkonly"><div class="bar"><button class="chip" id="mkConn">도우미 연결 확인</button><span class="mkst" id="mkState">PC에서 «원클릭 제작 도우미 켜기»를 켜 두면 여기에 만드는 중·완성이 떠요.</span></div><div id="mkList"></div></section>
+    <section class="card panel mkonly"><div class="bar"><button class="chip" id="mkConn">도우미 연결 확인</button><span class="mkst" id="mkState">PC에서 «원클릭 제작 도우미 켜기»를 켜 두면 여기에 만드는 중·완성이 떠요.</span></div><div id="axBox"></div><div id="mkList"></div></section>
 
     <div class="sec-h" id="hot"><div><span class="eyebrow">RISING + RELATED</span><h2>막 뜨는 작품 + 연관 꿀통<em id="cHot"></em></h2></div><div class="at">최근 3일 10만+ · 감시 채널 RSS + 작품 검색</div></div>
     <section class="card panel"><div id="hotList"></div></section>
@@ -781,6 +781,31 @@ function mkBind(w){
     }catch(e){ msg("PC의 제작 도우미에 닿지 않아요 — «원클릭 제작 도우미 켜기»를 켜 주세요. 휴대폰이면 «주문 글 복사»를 쓰세요.", true); }
   };
 }
+// 억스트라 방식으로 새로 만들기 — 레이더 작품 없이 방식 + 주제·링크·파일 (원클릭\제작법.md 4-3)
+let axModes = null;
+function axDraw(){
+  const ms = axModes || [], opts = ms.map(m => `<option value="${esc(m.n)}" ${m.heavy?"disabled":""}>${esc(m.n)}${m.heavy?" — 이 PC 사양으론 안 됨":""}</option>`).join("");
+  $("#axBox").innerHTML = `<div class="h5">＋ 억스트라 방식으로 새로 만들기 <span class="m" style="font-weight:500;color:var(--ink3)">레이더 작품 없이 — 방식을 고르고 주제·링크·파일만 넣으면 그 방식 지침 원문대로 만들어요</span></div>
+    <div class="mk"><label>억스트라 방식<select id="axMode">${opts}</select></label><label>편수<select id="axN"><option>1</option><option>2</option><option>3</option></select></label>
+      <div class="mkmsg" id="axDesc"></div>
+      <textarea id="axIn" placeholder="주제·유튜브 링크·원본 파일 경로 등 그 방식이 필요한 것 (비우면 지침대로 소재를 골라요)"></textarea>
+      <textarea id="axMemo" placeholder="하고 싶은 말 (비워도 돼요)"></textarea>
+      <label style="grid-column:1/-1;flex-direction:row;align-items:center;gap:6px;font-weight:500"><input type="checkbox" id="axPaid"> KIE·ElevenLabs 같은 생성형 유료 호출 허용 (예시 한 편 수준까지 · 타입캐스트는 늘 허용)</label>
+      <div class="row"><button class="btn" id="axGo">제작 주문 보내기</button></div><div class="mkmsg" id="axMsg"></div></div>`;
+  const desc = () => { const m = ms.find(x => x.n === $("#axMode").value) || {};
+    $("#axDesc").textContent = (m.d || "설명 없음") + (m.keys && m.keys.length ? ` · 필요한 키: ${m.keys.join(", ")}` : ""); };
+  $("#axMode").onchange = desc; desc();
+  $("#axGo").onclick = async () => {
+    $("#axMsg").textContent = "보내는 중…";
+    try{
+      const d = {mode:$("#axMode").value, input:$("#axIn").value, n:+$("#axN").value, memo:$("#axMemo").value.trim(), paid:$("#axPaid").checked};
+      const j = await mkFetch("/axorder", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)}, 10000);
+      $("#axMsg").textContent = j.id ? `주문 받았어요 (${j.id}) — 아래 목록에서 진행을 봐요.` : (j.err || "주문이 안 들어갔어요");
+      if(j.id){ $("#axIn").value = ""; $("#axMemo").value = ""; mkRefresh(); }
+    }catch(e){ $("#axMsg").textContent = "PC의 제작 도우미에 닿지 않아요."; }
+  };
+}
+
 let mkTimer = null;
 async function mkFetch(p, init, ms){
   const c = new AbortController(), t = setTimeout(() => c.abort(), ms || 4000);
@@ -798,6 +823,7 @@ async function mkRefresh(){
   try{
     const ping = await mkFetch("/ping"), os = await mkFetch("/orders");
     try{ localStorage.setItem("yd_mk", "1"); }catch(e){}
+    if(!axModes){ try{ axModes = await mkFetch("/axmodes"); axDraw(); }catch(e){} }
     $("#mkState").textContent = `도우미 연결됨 · ${ping.login ? "클로드 코드 로그인 됨" : "클로드 코드 로그인 필요 — 도우미 창을 닫고 다시 켜면 로그인 화면이 떠요"} · 기다리는 주문 ${ping.queue}`;
     $("#nMake").textContent = os.filter(o => o.state==="대기" || o.state==="제작 중").length || "";
     $("#cMake").textContent = os.length || "";
