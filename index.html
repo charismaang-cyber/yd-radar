@@ -737,12 +737,11 @@ function addBind(w){
 // 도우미가 띄운 레이더(127.0.0.1:87xx)면 같은 주소로 — 인터넷 주소(github.io)에선 브라우저가 내 PC 요청을 막을 수 있음
 const MK_LOCAL = /^http:\/\/(127\.0\.0\.1|localhost):87\d\d$/.test(location.origin);
 const MK = MK_LOCAL ? location.origin : "http://127.0.0.1:8790";
-const MK_CH = ["조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠",
-  "억스트라·드라마 짜집기","억스트라·눈알쨉쨉이형","억스트라·감동형","억스트라·클래식음악형"];  // 억스트라 = 그 방식 지침 통째로 (원클릭\제작법.md 4-2)
+const MK_CH = ["억스트라·드라마 짜집기","억스트라·눈알쨉쨉이형","억스트라·감동형","억스트라·클래식음악형",
+  "조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠"];  // 억스트라 = 그 방식 지침 통째로 (원클릭\제작법.md 4-2)
 const MK_WAY = ["채널 기본","1인칭 나레이션","감동 반전형","사이다(악역 최후)"];
 const MK_S = {"대기":"", "제작 중":"on", "완성":"ok", "실패":"bad", "멈춤":""};
-const mkDefCh = w => /감동/.test(w.g) ? "한 편의 위로" : (/사이다/.test(w.g) || ["미드","외화"].includes(w.k)) ? "사이다 시네"
-  : ["OTT","방송"].includes(w.k) ? "드라마쇼츠" : "조폭코미디";
+const mkDefCh = w => "억스트라·드라마 짜집기";  // 11-03 사용자: 원클릭 기본 틀 = 억스트라 짜집기 (다른 틀은 골라서)
 function mkPayload(w, f){
   const {i,n,y,g,d,k,q,tag,st,risk,riskwhy,en,cp,top,vids,hot,ans} = w;
   const same = D.works.filter(o => o.g===w.g && o.i!==w.i && ["GO","차선"].includes(enOf(o).v)).sort(byEntry).slice(0,8)
