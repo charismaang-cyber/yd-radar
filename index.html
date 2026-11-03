@@ -184,6 +184,27 @@ td .w{font-weight:700}
 .pl{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
 .calh{font-size:13px;font-weight:800;margin:14px 0 0;display:flex;gap:6px;align-items:center}
 
+/* 찾기 */
+.srch{position:relative;margin-top:14px;max-width:560px}
+.srch .search{width:100%;font-size:14px;padding:10px 14px}
+.sres{margin-top:8px;background:var(--card-solid);border:1px solid var(--line);border-radius:14px;max-height:min(70vh,560px);overflow-y:auto;padding:6px 10px 10px}
+.sres .sh{font-size:11.5px;font-weight:800;color:var(--ink3);margin:10px 2px 4px}
+.sr{display:flex;gap:10px;width:100%;padding:7px 4px;border:0;border-bottom:1px solid var(--line);background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.sr:hover{background:var(--sky1)}
+.sr .th{width:38px}
+.sr .nm{font-weight:800;font-size:13.5px}
+.sr .nm small{font-weight:500;color:var(--ink3);font-size:11px;margin-left:3px}
+.sr .tgs{margin:3px 0}
+.sr .m,.sres .m{font-size:11.5px;color:var(--ink3)}
+.sr .m b{color:var(--ink)}
+.sa{display:block;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13px;color:inherit}
+.sa .aw{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.sp{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px}
+.addw{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr));gap:8px;background:var(--sky1);border-radius:14px;padding:12px;margin-top:8px}
+.addw label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink3);font-weight:700}
+.addw select,.addw input{font:inherit;font-size:13px;color:var(--ink);background:var(--card-solid);border:1px solid var(--line);border-radius:10px;padding:6px 9px;min-width:0}
+.addw .row{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
 /* 원클릭 제작 */
 .mk{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:8px;background:var(--sky1);border-radius:14px;padding:12px}
 .mk label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink3);font-weight:700}
@@ -269,6 +290,8 @@ td .w{font-weight:700}
         <div class="sum" id="summary">불러오는 중…</div>
         <div class="note" id="note"></div>
         <div class="err" id="errs"></div>
+        <div class="srch"><input class="search" id="sq" type="search" autocomplete="off" placeholder="작품·배우·결 찾기 — 예: 주유소, 신은경, 학폭">
+          <div class="sres hidden" id="sres"></div></div>
       </div>
     </section>
 
@@ -278,7 +301,6 @@ td .w{font-weight:700}
       <div class="bar">
         <button class="chip" id="bc">방송사 작품도 보기</button>
         <button class="chip" id="noRisk">저작권 높음 빼기</button>
-        <input class="search" id="q" type="search" placeholder="작품 찾기">
       </div>
       <div class="rule"><b>꿀통</b> = 남의 100만+ 2편↑ · 그중 6개월 넘게 살아 있음 · 최근 60일 50만+ 없음 &nbsp;/&nbsp; <b>심정지 재진입</b> = 100만+ 기록 있고 90일 넘게 아무도 안 올림 &nbsp;/&nbsp; <b>경쟁 중</b> = 최근 60일 50만+ 남의 쇼츠 있음(라필: 지금 올리는 사람 있으면 넘김) &nbsp;/&nbsp; <b>막 뜸</b> = 3일 안에 10만+ — 이 작품은 누가 잡는 중, 연관작이 트래픽을 받음</div>
       <div class="rule"><b>진입 판정</b>(아모르 꿀통레이더 방식, 위 상태와 따로) — 막 튀었나? 블루오션인가? 둘 중 하나면 <b>GO</b> · 붐비거나 저작권 높으면 <b>피함</b> · 점수 = 수요 40% + 온도 20% + 여유(100−경쟁강도) 40%</div>
@@ -369,7 +391,7 @@ const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span cl
 let D = null, W = {}, opt = {bc:false, noRisk:false, q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
 const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:opt.bc,noRisk:opt.noRisk,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP})); }catch(e){} };
-const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.q || (w.n+w.tag+w.g).toLowerCase().includes(opt.q.toLowerCase()));
+const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음");
 const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
 
 // ── 잠금 풀기 ──
@@ -406,7 +428,10 @@ function show(d){
   $("#bc").classList.toggle("on", opt.bc); $("#noRisk").classList.toggle("on", opt.noRisk);
   $("#bc").onclick = () => { opt.bc = !opt.bc; saveOpt(); show(D); };
   $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
-  $("#q").oninput = e => { opt.q = e.target.value.trim(); draw(); };
+  $("#sq").oninput = drawSearch;
+  $("#sq").onkeydown = e => { if(e.key==="Escape"){ $("#sres").classList.add("hidden"); }
+    if(e.key==="Enter"){ const f = $("#sres [data-w]"); if(f) f.click(); else if($("#sProbe")) $("#sProbe").click(); } };
+  $("#sq").onfocus = () => { if($("#sq").value.trim()) drawSearch(); };
   $("#mkConn").onclick = mkRefresh; $("#navMake").onclick = () => { mkRefresh(); };
   let mkUsed = null; try{ mkUsed = localStorage.getItem("yd_mk"); }catch(e){}
   if(mkUsed && !mkTimer) mkRefresh();  // 한 번 연결해 본 PC 에서만 저절로 확인 (다른 기기에서 괜한 권한 창이 안 뜨게)
@@ -630,6 +655,7 @@ function openW(i){
       <div><span>최근 30일 경쟁</span><b>${c.ch??0}곳 ${c.n??0}편</b></div><div><span>30일 최고</span><b>${fmt(c.m30||null)}</b></div></div>
     <div class="cmp">${esc(e.why||"")}${(e.how||[]).length?"<br>때: "+e.how.map(esc).join(" · "):""}${c.n?`<br>1위 몫 ${c.share}% · 지난 7일 ${c.r7}편${c.surge?" · 지난주 급증":""} · 검색·최근 업로드 표본이라 실제보다 적을 수 있음`:""}</div>
     ${(c.riv||[]).length?`<div class="h5">최근 30일 경쟁 채널</div><div class="riv">${c.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    ${w.probe ? addForm(w) : ""}
     ${mkForm(w)}
     <div class="links" style="margin-top:14px"><a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">유튜브 검색</a><a href="https://www.youtube.com/hashtag/${t}/shorts" target="_blank" rel="noopener">#${esc(w.tag)}</a>
       ${w.ans?`<a href="https://www.youtube.com/channel/${esc(w.ans.cid)}/shorts" target="_blank" rel="noopener">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</a>`:""}
@@ -639,7 +665,71 @@ function openW(i){
     <div class="h5">남이 터뜨린 쇼츠 (조회수 순)</div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
     ${w.rel&&w.rel.length?`<div class="h5">🍯 이어서 볼 연관작</div><div class="rels">${w.rel.map(relCard).join("")}</div>`:""}`;
   $("#modal").classList.remove("hidden");
-  $("#mx").onclick = closeM; bind(); mkBind(w);
+  $("#mx").onclick = closeM; bind(); mkBind(w); if(w.probe) addBind(w);
+}
+
+// ── 찾기: 작품·배우·결·신작 — 목록에 없으면 PC 도우미가 유튜브를 지금 재 봄 ──
+const nrm = s => String(s ?? "").toLowerCase().replace(/[^0-9a-z가-힣]/g, "");
+function searchAll(q){
+  const k = nrm(q); if(!k) return null;
+  const ws = [];
+  D.works.forEach(w => {
+    const n = nrm(w.n), s = n.startsWith(k) ? 0 : n.includes(k) ? 1 : (nrm(w.q) + nrm(w.tag)).includes(k) ? 2
+      : (nrm(w.g) + nrm(w.d) + nrm(w.y)).includes(k) ? 3 : -1;
+    if(s >= 0) ws.push([s, w]);
+  });
+  ws.sort((a,b) => a[0]-b[0] || byEntry(a[1], b[1]));
+  const acts = [];
+  (D.cal||[]).forEach(t => t.leads.forEach(l => { if(nrm(l.n).includes(k)) acts.push({l, t}); }));
+  return {ws: ws.map(x => x[1]), acts, cals: (D.cal||[]).filter(t => nrm(t.n).includes(k))};
+}
+function drawSearch(){
+  const q = $("#sq").value.trim(), r = searchAll(q), box = $("#sres");
+  if(!r){ box.classList.add("hidden"); return; }
+  const wrow = w => `<button class="sr" data-w="${esc(w.i)}">${thumb((w.top||{}).id)}<div style="min-width:0">
+    <div class="nm">${esc(w.n)}<small>${esc(w.y)} · ${esc(w.g)} · ${esc(w.k)}</small></div>
+    <div class="tgs">${enTag(w)} ${stTag(w.st)} ${rkTag(w)}</div><div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100??0}편${w.at?` · 잰 때 ${esc(w.at)}`:""}</div></div></button>`;
+  let h = "";
+  if(r.ws.length) h += `<div class="sh">작품 ${r.ws.length}</div>` + r.ws.slice(0,10).map(wrow).join("")
+    + (r.ws.length > 10 ? `<div class="m" style="padding:6px 4px">… ${r.ws.length-10}편 더 — 조금 더 길게 쳐 보세요</div>` : "");
+  if(r.acts.length) h += `<div class="sh">배우 — 신작 주연</div>` + r.acts.slice(0,4).map(({l,t}) => `<div class="sa"><b>${esc(l.n)}</b>
+    <span class="m">«${esc(t.n)}» ${esc(t.p)} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"}</span>
+    <div class="aw">${l.w.map(i => W[i]).filter(Boolean).sort(byEntry).map(w => `<button class="aw1" data-w="${esc(w.i)}">${esc(w.n)} ${enTag(w)}</button>`).join("") || '<span class="m">목록에 이 배우의 지난 영화가 없어요</span>'}</div></div>`).join("");
+  if(r.cals.length) h += `<div class="sh">신작 달력</div>` + r.cals.slice(0,4).map(t => `<a class="sa" href="#cal"><b>${esc(t.n)}</b>
+    <span class="m">${esc(t.p)} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"} · ${t.leads.map(l => esc(l.n)).join(", ")}</span></a>`).join("");
+  h += `<div class="sp"><span class="m">${r.ws.length ? "찾는 작품이 목록에 없나요?" : `«${esc(q)}» 은(는) 목록에 없어요.`}</span>
+    <button class="chip" id="sProbe" title="이 PC의 원클릭 제작 도우미가 유튜브에서 쇼츠를 긁어 레이더와 같은 기준으로 재요 (키 몇 유닛)">PC에서 지금 재 보기</button>
+    <a class="chip" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q + " shorts")}" target="_blank" rel="noopener">유튜브에서 보기</a>
+    <span class="m" id="sMsg"></span></div>`;
+  box.innerHTML = h; box.classList.remove("hidden"); bind();
+  $("#sProbe").onclick = () => probeW(q);
+}
+async function probeW(q){
+  $("#sMsg").textContent = "PC 도우미가 유튜브에서 재는 중… (10~40초)";
+  try{
+    const j = await mkFetch("/probe?q=" + encodeURIComponent(q), null, 90000);
+    if(j.err) return $("#sMsg").textContent = j.err === "없음" ? "도우미가 옛 판이에요 — 도우미 창을 닫고 다시 켜 주세요." : j.err;
+    const w = Object.assign(j, {i: "probe:" + nrm(q), probe: true});
+    W[w.i] = w; $("#sMsg").textContent = ""; openW(w.i);
+  }catch(e){ $("#sMsg").textContent = "PC의 원클릭 제작 도우미에 닿지 않아요 — 이 PC에서 «원클릭 제작 도우미 켜기»를 켜 주세요."; }
+}
+function addForm(w){
+  const sel = (id, a) => `<select id="${id}">${a.map(x => `<option>${esc(x)}</option>`).join("")}</select>`;
+  return `<div class="h5">＋ 영드레이더 목록에 넣기 <span class="m" style="font-weight:500;color:var(--ink3)">지금 잰 결과는 이번 한 번뿐 — 넣으면 30분마다 계속 재요</span></div>
+    <div class="addw"><label>결${sel("awG", D.gyeol.map(g => g.k))}</label><label>종류${sel("awK", ["영화","OTT","방송","외화","미드"])}</label>
+      <label>연도<input id="awY" placeholder="예: 2001"></label><label>배급<input id="awD" placeholder="예: 시네마서비스 (저작권 판단에 씀)"></label>
+      <label style="grid-column:1/-1">검색어 (흔한 낱말 제목이면 배우 이름도 — 예: 친구 유오성 장동건)<input id="awQ" value="${esc(w.n)}"></label>
+      <div class="row"><button class="btn" id="awGo">목록에 넣기</button><span class="m" id="awMsg"></span></div></div>`;
+}
+function addBind(w){
+  $("#awGo").onclick = async () => {
+    $("#awMsg").textContent = "넣는 중…";
+    try{
+      const d = {n:w.n, g:$("#awG").value, k:$("#awK").value, y:$("#awY").value.trim(), d:$("#awD").value.trim(), q:$("#awQ").value.trim()};
+      const j = await mkFetch("/addwork", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)}, 60000);
+      $("#awMsg").textContent = j.msg || j.err || "넣었어요";
+    }catch(e){ $("#awMsg").textContent = "PC의 원클릭 제작 도우미에 닿지 않아요."; }
+  };
 }
 
 // ── 원클릭 제작: 이 PC의 «원클릭 제작 도우미»(원클릭\제작도우미.py, 127.0.0.1:8790)에 주문 ──
@@ -687,8 +777,8 @@ function mkBind(w){
   };
 }
 let mkTimer = null;
-async function mkFetch(p, init){
-  const c = new AbortController(), t = setTimeout(() => c.abort(), 4000);
+async function mkFetch(p, init, ms){
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms || 4000);
   try{ const r = await fetch(MK + p, {...(init||{}), signal:c.signal}); return await r.json(); } finally{ clearTimeout(t); }
 }
 function mkRow(o){

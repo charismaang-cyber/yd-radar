@@ -302,6 +302,19 @@ def entry(j, timing):
     return {"v": v, "s": s, "dem": round(dem), "tmp": round(tmp), "cmp": comp, "why": why, "how": hows}
 
 
+def probe(n, q="", key="", log=print):
+    """레이더 «찾기»에서 목록에 없는 작품을 지금 재 본다 — PC의 원클릭 제작 도우미가 부른다(키 몇 유닛)."""
+    tag = n.replace(" ", "")
+    w = {"i": norm(n) or n, "n": n, "g": "?", "k": "?", "d": "?", "y": "", "tag": tag, "q": q or "#" + tag,
+         "ht_ok": not q or " " not in q, "names": [n, tag]}
+    rec = scan_work(w, key, "scrape", log)
+    j = dict(judge(w, rec, now_min()), **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")})
+    j["at"] = kst(rec["at"]).strftime("%m-%d %H:%M")
+    j["risk"], j["riskwhy"] = risk_of(w, [v[2] for v in rec["v"]] + rec.get("off", []))
+    j["en"] = entry(j, {})
+    return j
+
+
 def fmt_v(v):
     v = v or 0
     return f"{v / 1e8:.1f}억".replace(".0억", "억") if v >= 1e8 else f"{round(v / 1e4):,}만" if v >= 1e4 else f"{v:,}"
