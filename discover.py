@@ -5,9 +5,13 @@
       결은 위키백과 분류(조폭 영화·학교 폭력·일제 강점기 …)로 짐작한다.
    2) 거르기(회차마다 몇 분씩, 키 안 씀): #제목 쇼츠 화면을 긁어 제일 큰 조회수를 본다.
    3) 큰 쇼츠(min_top 넘음)가 있는 것만 작품 목록에 올려 보통 작품처럼 잰다. 배급사는 그때 위키백과 정보상자에서."""
-import re, time, urllib.parse
+import re, json, time, urllib.parse, urllib.request
 from datetime import date
 import actors, yt
+
+VER = 2  # 후보 고르는 법이 바뀌면 올린다 → 다음 회차에 후보를 새로 받고, 전에 못 봤던 작품을 바로 거른다 (2: 두 글자 제목·주연 빈칸)
+SEC = re.compile(r"^==+\s*(출연|출연진|배역|등장\s*인물|캐스트|캐스팅|주요\s*인물)\s*==+\s*$(.*?)(?=^==[^=]|\Z)", re.M | re.S)
+NAME = re.compile(r"[가-힣]{2,5}")
 
 OTT_CAT = re.compile(r"넷플릭스|티빙|TVING|디즈니|쿠팡플레이|웨이브|wavve|왓챠|오리지널")
 # 위키백과 분류 낱말 → 우리 결 (위에서부터 먼저 맞는 것)
@@ -92,11 +96,11 @@ def candidates(cfg, log, today=None):
                 continue
             out[t] = {"n": actors.short(t), "y": y, "k": "OTT", "g": gyeol_of(cats), "d": plat.replace("오리지널", "OTT")}
     # 위키백과 제목에 '(2023년 영화)' 같은 꼬리가 붙은 건 흔한 낱말(스위치·사마귀·스캔들…) → 주연 배우 이름을 같이 써야 다른 영상과 안 섞임
-    amb = [t for t in out if actors.short(t) != t]
-    got = actors.pages(amb)
+    # 두 글자 제목(곡성·명량·무빙)은 #태그가 너무 흔해서 같은 길로 찾는다
+    amb = [t for t in out if actors.short(t) != t or plain_len(out[t]["n"]) < 3]
+    who = casts(amb, log)
     for t in amb:
-        cast = [actors.short(a) for a in actors.people(actors.field(got.get(t, {}).get("w", ""), "출연", "출연자", "주연"), 2)]
-        out[t].update(amb=True, cast=cast)
+        out[t].update(amb=True, cast=who[t])
     log(f"작품 늘리기: 후보 {len(out)}편 (영화 {sum(v['k'] == '영화' for v in out.values())}, OTT {sum(v['k'] == 'OTT' for v in out.values())}, "
         f"흔한 제목 {len(amb)}편은 배우 이름 붙여 찾음)")
     return out
@@ -106,11 +110,72 @@ def tag_of(n):
     return re.sub(r"[^0-9A-Za-z가-힣_]", "", n)
 
 
+def plain_len(n):
+    return len(re.sub(r"[^0-9a-z가-힣]", "", n.lower()))
+
+
+def wikidata_cast(qids):
+    """위키데이터 '출연'(P161) → {qid: 한국어 이름들}. 못 받으면 그 묶음만 건너뜀."""
+    out = {}
+    get = lambda **p: json.loads(urllib.request.urlopen(urllib.request.Request(
+        "https://www.wikidata.org/w/api.php?" + urllib.parse.urlencode(dict(p, action="wbgetentities", format="json")), headers=actors.UA), timeout=40).read())
+    qids = list(qids)
+    for i in range(0, len(qids), 40):
+        try:
+            d = get(ids="|".join(qids[i:i + 40]), props="claims")
+            who = {q: [c["mainsnak"]["datavalue"]["value"]["id"] for c in d.get("entities", {}).get(q, {}).get("claims", {}).get("P161", [])
+                       if c["mainsnak"].get("datavalue")][:6] for q in qids[i:i + 40]}
+            ids, lab = sorted({x for v in who.values() for x in v}), {}
+            for j in range(0, len(ids), 50):
+                time.sleep(.3)
+                for a, b in get(ids="|".join(ids[j:j + 50]), props="labels", languages="ko").get("entities", {}).items():
+                    if b.get("labels", {}).get("ko"):
+                        lab[a] = b["labels"]["ko"]["value"]
+            for q, v in who.items():
+                out[q] = [actors.short(lab[x]) for x in v if x in lab]
+        except Exception:
+            pass
+        time.sleep(.3)
+    return out
+
+
+def casts(titles, log):
+    """제목과 함께 검색할 이름 2명: 정보상자 출연 → 다른 칸·출연 절 → 위키데이터 → 그래도 없으면 감독.
+       정보상자 출연이 읽히는 작품은 예전과 똑같이 둔다(검색어가 바뀌면 재 둔 기록이 처음부터 다시 시작된다)."""
+    got, out, need = actors.pages(titles), {}, {}
+    ok = lambda xs: [x for x in xs if NAME.search(x) and "[" not in x and "참조" not in x]
+    for t in titles:
+        w = got.get(t, {}).get("w", "")
+        c = ok([actors.short(a) for a in actors.people(actors.field(w, "출연", "출연자", "주연"), 2)])
+        if not c:
+            c = ok([actors.short(a) for a in actors.people(actors.field(w, "배우", "출연진"), 2)])
+        if not c:
+            m = SEC.search(w)
+            links = actors.LINK.findall(m.group(2)) if m else []
+            c = list(dict.fromkeys(a for a in (actors.short(x[0].strip()) for x in links) if NAME.fullmatch(a)))[:2]
+        out[t] = c
+        if not c and got.get(t, {}).get("qid"):
+            need[t] = got[t]["qid"]
+    wd = wikidata_cast(need.values())
+    filled = 0
+    for t, q in need.items():
+        out[t] = [a for a in wd.get(q, []) if NAME.fullmatch(a)][:2]
+        filled += bool(out[t])
+    boss = 0
+    for t in titles:
+        if not out[t]:  # 옛 영화·작은 영화는 배우 칸이 없기도 하다
+            out[t] = ok([actors.short(a) for a in actors.people(actors.field(got.get(t, {}).get("w", ""), "감독"), 1)])
+            boss += bool(out[t])
+    log(f"작품 늘리기: 함께 검색할 이름 {sum(bool(v) for v in out.values())}/{len(titles)}편 (위키데이터 {filled}, 감독 {boss})")
+    return out
+
+
 def screen(st, cfg, have, minutes, log):
     """아직 안 본(또는 오래된) 후보의 #제목 쇼츠 화면을 긁어 제일 큰 조회수를 적는다. 키 안 씀."""
     d, now, t0, n = st["disc"], int(time.time() // 60), time.time(), 0
+    soon = now - (cfg["rescreen_days"] - 7) * 1440  # 빈 화면·오류는 일시적일 때가 많아(명량·승부) 60일 말고 7일 뒤 다시
     todo = [k for k, c in d["cand"].items()
-            if len(re.sub(r"[^0-9a-z가-힣]", "", c["n"].lower())) >= 3 and c["n"].replace(" ", "") not in have
+            if (plain_len(c["n"]) >= 3 or c.get("cast")) and c["n"].replace(" ", "") not in have
             and now - d["seen"].get(k, [0])[0] >= cfg["rescreen_days"] * 1440]
     todo.sort(key=lambda k: (d["seen"].get(k, [0])[0], -d["cand"][k]["y"]))  # 처음 보는 것·최근 작품부터
     for k in todo:
@@ -125,14 +190,19 @@ def screen(st, cfg, have, minutes, log):
                 r = yt.initial_data(yt.fetch("https://www.youtube.com/results?search_query="
                                              + urllib.parse.quote(f"{c['n']} {c['cast'][0]}") + "&hl=ko&gl=KR")) or {}
                 v, items = None, yt._lockups(r) + yt._videos(r)
+                blank = not items
+                if plain_len(c["n"]) < 3:  # 두 글자는 낱말이 흔하다: 결과 제목에 작품 이름이 있는 것만 (승부 이병헌 → 이병헌의 다른 영상 빼기)
+                    want = c["n"].replace(" ", "").lower()
+                    items = [x for x in items if want in (x.get("title") or "").replace(" ", "").lower()]
             else:
                 v, _, items = yt.hashtag_page(tag_of(c["n"]))
+                blank = not items and v is None
         except yt.Blocked:
             raise
         except Exception:
-            d["seen"][k] = [now, None, 0]
+            d["seen"][k] = [soon, None, 0]
             continue
-        d["seen"][k] = [now, v, max((x["v"] or 0 for x in items), default=0)]
+        d["seen"][k] = [soon if blank else now, v, max((x["v"] or 0 for x in items), default=0)]
         n += 1
         time.sleep(1.0)
     passed = sum(1 for s in d["seen"].values() if s[2] >= cfg["min_top"])

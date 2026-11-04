@@ -594,8 +594,11 @@ def main():
         for k in ("cand", "seen", "dist"):
             d.setdefault(k, {})
         try:
-            if now - d.get("m", 0) >= DC["refresh_days"] * 1440:
+            if now - d.get("m", 0) >= DC["refresh_days"] * 1440 or d.get("ver") != discover.VER:
                 d["cand"], d["m"] = discover.candidates(DC, log, kst(now).date()), now
+                if d.get("ver") != discover.VER:  # 찾는 법이 바뀌었으니 전에 아무것도 못 본 작품은 바로 다시
+                    d["seen"] = {k: s for k, s in d["seen"].items() if s[1] is not None or s[2]}
+                    d["ver"] = discover.VER
             discover.screen(st, DC, {w["tag"] for w in base}, DC["screen_minutes"], log)
             discover.fill_dist(st, [x["key"] for x in discover.works(st, DC)], log)
         except Exception as e:
