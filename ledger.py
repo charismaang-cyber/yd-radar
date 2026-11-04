@@ -150,6 +150,16 @@ def film(x):
     return x.get("s", 0) >= 0.2 * x["n"] or x.get("w", 0) >= 0.3 * x["n"]
 
 
+def person(x):
+    """배우 인생 이야기 채널: 한 편에 작품 여럿이 자주 나오고, 영상마다 작품이 다르다.
+       영화 클립 채널은 한 작품을 여러 편 올리므로 안 걸린다 (11-05: 6,476곳 중 16곳, 읽어 보니 전부 인물·목록 채널)"""
+    if not x or x.get("n", 0) < 5 or x.get("m", 0) < 0.3 * x["n"]:
+        return False
+    wk = x.get("wk") or {}
+    a = sum(wk.values())
+    return a == 0 or len(wk) >= 0.6 * a
+
+
 def add_channel(L, cid, title, now):
     if cid and cid not in L["ch"] and cid not in L["dead"]:
         L["ch"][cid] = {"t": title, "a": now, "n": 0, "s": 0, "w": 0, "nx": 0, "tab": 0}
@@ -171,6 +181,7 @@ def judge(L, x, src, now, count=True):
             chx["n"] += 1
             chx["w"] += bool(R.FILMW.search(x["t"] + " " + (x.get("desc") or "")))
             chx["s"] += bool(res and res[0][4] and res[0][0] >= 4)
+            chx["m"] = chx.get("m", 0) + R.multi(res)
     d = R.pick(res, film(chx), p["TH"])
     key = d["w"] if d["lv"] == "확실" else PAN + d["nn"] if d["lv"] == "판모름" else None
     f = R.fingerprint(x.get("desc"))
@@ -183,6 +194,9 @@ def judge(L, x, src, now, count=True):
         return False
     nc = bool(R.NC.search(x["t"] + " " + " ".join(R.HT.findall(x.get("desc") or "")) + " " + " ".join(x.get("tags") or [])))
     L["v"][x["i"]] = [key, cid, x.get("v") or 0, x["pub"][:19], x["t"][:60], int(nc) | (2 if d["strong"] else 0), src, now]
+    if chx is not None and count:
+        wk = chx.setdefault("wk", {})
+        wk[key] = wk.get(key, 0) + 1
     if chx is not None and f:
         chx.setdefault("fp", {}).setdefault(str(f), []).append(key)
         del chx["fp"][str(f)][:-6]
@@ -460,7 +474,7 @@ def filter_round(L, st, works, wk, key, now, today, deadline):
 def tab_round(L, st, key, now, today, deadline):
     """첫 등록: 채널 Shorts 탭 첫 화면(48편) — RSS 15편으로는 30일이 안 보이는 채널이 많다 (39곳 대조에서 30%만 보임)"""
     ch = L["ch"]
-    todo = sorted((c for c, x in ch.items() if not x.get("tab") and x.get("n", 0) >= 4 and film(x) and x.get("s", 0) >= 1), key=lambda c: -ch[c].get("s", 0))[:TAB_PER_ROUND]
+    todo = sorted((c for c, x in ch.items() if not x.get("tab") and x.get("n", 0) >= 4 and film(x) and not person(x) and x.get("s", 0) >= 1), key=lambda c: -ch[c].get("s", 0))[:TAB_PER_ROUND]
     done = n = hit = 0
     for c in todo:
         if time.time() > deadline or units_left(L, st, today, 2) <= 0:
@@ -491,7 +505,7 @@ def tab_round(L, st, key, now, today, deadline):
                 else:
                     L["rej"][i] = 1
         time.sleep(0.8)
-    left = sum(1 for x in ch.values() if not x.get("tab") and x.get("n", 0) >= 4 and film(x) and x.get("s", 0) >= 1)
+    left = sum(1 for x in ch.values() if not x.get("tab") and x.get("n", 0) >= 4 and film(x) and not person(x) and x.get("s", 0) >= 1)
     L["tab_left"] = left
     log(f"채널 탭 첫 등록 {done}곳 · 영상 {n}편 → 작품 {hit}편 (남은 {left}곳)")
 
@@ -531,6 +545,7 @@ def cards(L, st, data, works, wk):
         if (r[FLAG] & 2) or film(x):
             by[r[K]].append((i, r))
     name = lambda c: L["nm"].get(c, "") or (ch.get(c) or {}).get("t", "")
+    isnc = lambda r: bool(r[FLAG] & 1) or person(ch.get(r[CID]))
     out, totals = {}, Counter()
     names = defaultdict(list)
     for k, c in L["cat"].items():
@@ -538,7 +553,7 @@ def cards(L, st, data, works, wk):
     bucket = lambda v: "b10" if v >= 100000 else "b1" if v >= 10000 else "b0"
     for i, r in L["v"].items():
         a = age_days(r[PUB], now)
-        if a is None or a > 30 or r[FLAG] & 1 or OFF.search(name(r[CID])):
+        if a is None or a > 30 or isnc(r) or OFF.search(name(r[CID])):
             continue
         s, l = bool(r[SRC] & 1), bool(r[SRC] & 6)
         b = bucket(r[VIEWS])
@@ -552,13 +567,13 @@ def cards(L, st, data, works, wk):
         for g in group:
             for i, r in by.get(g, []):
                 row = [i, r[TITLE], name(r[CID]), r[CID], r[VIEWS], r[PUB], 0]
-                if r[FLAG] & 1:
+                if isnc(r):
                     nc.append(row)
                     continue
                 rows.append(row)
                 if g == k:
                     own.append(row)
-        pan = [(i, r) for i, r in by.get(PAN + R.norm(w["n"]), []) if not r[FLAG] & 1]
+        pan = [(i, r) for i, r in by.get(PAN + R.norm(w["n"]), []) if not isnc(r)]
         # 같은 이름을 못 가른 영상: 다른 작품 쪽이 거의 안 잡히면 이 작품으로 친다 (탈주 2024 — 330만이 여기 있었음). 비슷하게 잡히면 안 센다 (트리거)
         others = sum(len(by.get(o, [])) for o in names.get(R.norm(w["n"]), []) if o != k)
         pan_in = bool(pan) and len(by.get(k, [])) >= 5 * others
@@ -576,7 +591,7 @@ def cards(L, st, data, works, wk):
         src = Counter()
         for g in group + ([PAN + R.norm(w["n"])] if pan_in else []):
             for i, r in by.get(g, []):
-                if (age_days(r[PUB], now) or 999) <= 30 and not r[FLAG] & 1:
+                if (age_days(r[PUB], now) or 999) <= 30 and not isnc(r):
                     src["s"] += bool(r[SRC] & 1); src["l"] += bool(r[SRC] & 6); src["b"] += bool(r[SRC] & 1 and r[SRC] & 6)
         out[w["i"]] = {"st": j.get("st"), "v": e.get("v"), "s": e.get("s"), "why": e.get("why"), "ch": c.get("ch", 0), "n": c.get("n", 0), "m30": c.get("m30", 0), "cs": c.get("s", 0),
                        "n100": j.get("n100", 0), "top": ({"id": rows[0][0], "t": rows[0][1], "ch": rows[0][2], "v": rows[0][4]} if rows else None),
@@ -587,7 +602,7 @@ def cards(L, st, data, works, wk):
                        "pan": ({"n": len(pan), "top": max(r[VIEWS] for _, r in pan), "inc": pan_in} if pan else None)}
     today = kst(now).date().isoformat()
     active = sum(1 for x in ch.values() if x.get("r"))
-    stat = {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "ch": len(ch), "film": sum(1 for x in ch.values() if x.get("n", 0) >= 4 and film(x)), "read": active,
+    stat = {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "ch": len(ch), "film": sum(1 for x in ch.values() if x.get("n", 0) >= 4 and film(x) and not person(x)), "person": sum(1 for x in ch.values() if person(x)), "read": active,
             "vids": len(L["v"]), "cat": len(L["cat"]), "cat_todo": len(L["cat_todo"]), "units": L["units"].get(today, 0), "old_left": L.get("old_left", 0),
             "tab_left": L.get("tab_left", 0), "block": L.get("block", 0), "tot": dict(totals), "since": L.get("since")}
     return {"stat": stat, "w": out}

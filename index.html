@@ -430,7 +430,7 @@ function newBlock(w){
   if(n.top) notes.push(`새 최고 영상: <a href="https://www.youtube.com/shorts/${esc(n.top.id)}" target="_blank" rel="noopener">${esc(n.top.t)}</a> (${esc(n.top.ch)})`);
   if(n.ser) notes.push(`시리즈로 묶어 셈: ${n.ser.map(esc).join(" · ")} — 이 작품만 ${n.own.ch}곳 ${n.own.n}편, 30일 최고 ${fmt(n.own.m30||null)}`);
   if(n.pan) notes.push(`같은 이름 작품과 못 가른 영상 ${n.pan.n}편(최고 ${fmt(n.pan.top)})은 ${n.pan.inc?"다른 작품 쪽이 거의 안 잡혀서 이 작품으로 침":"안 셈"}`);
-  if(n.nc) notes.push(`예능·행사·패러디 ${n.nc.n}편(최고 ${fmt(n.nc.top)})은 작품 클립이 아니라서 뺌`);
+  if(n.nc) notes.push(`예능·행사·패러디·배우 인생 이야기 ${n.nc.n}편(최고 ${fmt(n.nc.top)})은 작품 클립이 아니라서 뺌`);
   return `<div class="nw"><div class="h5" style="margin:0">⇄ 새 방식과 비교 <span class="m" style="font-weight:500;color:var(--ink3)">시험 중 · 찾은 만큼만 센 값이라 실제보다 적을 수 있어요</span></div>
     <table class="nwt"><tr><th></th><th>옛 방식</th><th>새 방식</th></tr>
     ${row("진입 판정", esc(e.v), esc(n.v))}${row("상태", esc(w.st), esc(n.st))}
