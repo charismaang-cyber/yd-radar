@@ -66,8 +66,9 @@ jobs:
           while :; do
             t0=$(date +%s)
             python scan.py --out site --minutes 22 || echo "재기 실패 — 다음 회차에 다시"
+            python ledger.py --out site --minutes 8 || echo "장부 실패 — 옛 숫자와 상관없음"
             publish || echo "올리기 실패 — 다음 회차에 다시"
-            # 한 회차가 길면 40분(거르기 8분 + 재기 22분 + 하루 한 번 배우 일정 + 달마다 후보) → 6시간 끊김 전에 여유 있게 멈춤
+            # 한 회차가 길면 48분(거르기 8분 + 재기 22분 + 하루 한 번 배우 일정 + 달마다 후보 + 장부 8분) → 6시간 끊김 전에 여유 있게 멈춤
             [ $(( $(date +%s) + 45 * 60 )) -lt "$end" ] || break
             left=$(( t0 + 30 * 60 - $(date +%s) ))
             [ "$left" -gt 60 ] && sleep "$left"

@@ -167,6 +167,15 @@ td .w{font-weight:700}
 .riv{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;font-size:12.5px;margin-top:4px}
 .riv a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .riv span{color:var(--ink3);font-variant-numeric:tabular-nums;text-align:right}
+/* 병행 운행: 옛 숫자와 새 숫자 나란히 */
+.nw{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin-top:14px}
+.nwt{width:100%;min-width:0;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.nwt th,.nwt td{padding:4px 6px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line)}
+.nwt th:first-child,.nwt td:first-child{text-align:left;color:var(--ink3);font-weight:500}
+.nwt th{font-size:11px;color:var(--ink3);font-weight:600}
+.nwt td.dif{font-weight:800;color:var(--ink)}
+.nwt tr[data-w]{cursor:pointer}
+.nwn{font-size:11.5px;color:var(--ink2);line-height:1.65;margin-top:6px}
 .rise{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px;padding-top:14px}
 .rise .th{width:100%}
 .rise .t{font-size:11.5px;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -266,6 +275,7 @@ td .w{font-weight:700}
       <a href="#map">◈ 결 지도</a>
       <a href="#season">◔ 시즌·이슈</a>
       <a href="#all">☰ 작품 전체 <span class="cnt" id="nAll"></span></a>
+      <a href="#newcmp" id="navNew" class="hidden">⇄ 새 방식 비교 <span class="cnt" id="nNew"></span></a>
       <a href="#chan">◉ 정답지 채널 <span class="cnt" id="nChan"></span></a>
       <a href="https://charismaang-cyber.github.io/daily-flow/">↗ 오늘의 흐름</a>
     </nav>
@@ -340,6 +350,9 @@ td .w{font-weight:700}
     <div class="sec-h" id="all"><div><span class="eyebrow">ALL WORKS</span><h2>작품 전체<em id="cAll"></em></h2></div><div class="at">제목 줄을 누르면 정렬 · 고른 작품(works.txt) + 배우 타이밍 + 자동 발굴(위키백과 후보 중 큰 쇼츠 있는 것)</div></div>
     <section class="card panel"><div class="tbl-wrap"><table id="tbl"></table></div></section>
 
+    <div id="newSec" class="hidden"><div class="sec-h" id="newcmp"><div><span class="eyebrow">PARALLEL RUN</span><h2>새 방식 비교<em id="cNew"></em></h2></div><div class="at">검색 + 채널 장부를 합친 새 숫자 · 옛 판정은 그대로 두고 비교만 해요</div></div>
+    <section class="card panel"><div id="newBody"></div></section></div>
+
     <div class="sec-h" id="chan"><div><span class="eyebrow">ANSWER CHANNELS · FEED</span><h2>정답지 채널 · 소재 피드</h2></div><div class="at">100만+ 쇼츠를 낸 채널을 자동으로 모아 지켜봄</div></div>
     <section class="grid2">
       <div class="card panel"><div class="panel-h"><h3>정답지 채널</h3><span class="sub">100만+ 편수</span></div><div class="scroll" id="chans"></div></div>
@@ -399,6 +412,54 @@ const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:o
 const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
 const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
 
+// ── 병행 운행: 검색 + 채널 장부를 합친 새 숫자 (ledger.py). 없거나 못 풀어도 옛 화면은 그대로 ──
+let NEW = null, PW = null;
+function loadNew(){
+  return new Promise(res => { const s = document.createElement("script"); s.src = "new.enc.js?t=" + Date.now();
+    s.onload = () => res(window.YD_NEW || null); s.onerror = () => res(null); document.head.appendChild(s); });
+}
+async function startNew(){
+  try{ const box = await loadNew(); if(box && PW){ NEW = await unlock(box, PW); drawNew(); } }catch(e){}
+}
+function newBlock(w){
+  const n = NEW && NEW.w[w.i]; if(!n) return "";
+  const e = enOf(w), c = w.cp || {}, top = (w.top||{}).v, nt = (n.top||{}).v;
+  const row = (k, a, b) => `<tr><td>${k}</td><td>${a}</td><td class="${a!==b?"dif":""}">${b}</td></tr>`;
+  const src = n.src || {}, notes = [];
+  notes.push(`최근 30일 찾은 길: 검색 ${src.s||0}편 · 채널 장부 ${src.l||0}편 · 둘 다 ${src.b||0}편`);
+  if(n.top) notes.push(`새 최고 영상: <a href="https://www.youtube.com/shorts/${esc(n.top.id)}" target="_blank" rel="noopener">${esc(n.top.t)}</a> (${esc(n.top.ch)})`);
+  if(n.ser) notes.push(`시리즈로 묶어 셈: ${n.ser.map(esc).join(" · ")} — 이 작품만 ${n.own.ch}곳 ${n.own.n}편, 30일 최고 ${fmt(n.own.m30||null)}`);
+  if(n.pan) notes.push(`같은 이름 작품과 못 가른 영상 ${n.pan.n}편(최고 ${fmt(n.pan.top)})은 ${n.pan.inc?"다른 작품 쪽이 거의 안 잡혀서 이 작품으로 침":"안 셈"}`);
+  if(n.nc) notes.push(`예능·행사·패러디 ${n.nc.n}편(최고 ${fmt(n.nc.top)})은 작품 클립이 아니라서 뺌`);
+  return `<div class="nw"><div class="h5" style="margin:0">⇄ 새 방식과 비교 <span class="m" style="font-weight:500;color:var(--ink3)">시험 중 · 찾은 만큼만 센 값이라 실제보다 적을 수 있어요</span></div>
+    <table class="nwt"><tr><th></th><th>옛 방식</th><th>새 방식</th></tr>
+    ${row("진입 판정", esc(e.v), esc(n.v))}${row("상태", esc(w.st), esc(n.st))}
+    ${row("최근 30일 경쟁", `${c.ch??0}곳 ${c.n??0}편`, `${n.ch}곳 ${n.n}편`)}${row("30일 최고", fmt(c.m30||null), fmt(n.m30||null))}
+    ${row("남의 최고", fmt(top), fmt(nt))}${row("100만+", `${w.n100??0}편`, `${n.n100}편`)}${row("경쟁강도", `${c.s??0}`, `${n.cs}`)}</table>
+    ${(n.riv||[]).length?`<div class="h5">새 방식의 최근 30일 경쟁 채널</div><div class="riv">${n.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    <div class="nwn">${notes.join("<br>")}</div></div>`;
+}
+function drawNew(){
+  const s = NEW.stat, rows = D.works.filter(w => NEW.w[w.i] && vis(w));
+  const diff = rows.filter(w => enOf(w).v !== "미확인" && enOf(w).v !== NEW.w[w.i].v);
+  const gap = w => Math.abs(Math.log10((NEW.w[w.i].m30||1) / ((w.cp||{}).m30||1)));
+  diff.sort((a,b) => gap(b) - gap(a));
+  $("#navNew").classList.remove("hidden"); $("#newSec").classList.remove("hidden");
+  $("#nNew").textContent = diff.length; $("#cNew").textContent = `판정 다른 작품 ${diff.length} / ${rows.length}`;
+  const t = s.tot || {}, cov = (k, nm) => { const S=t[k+"S"]||0, L=t[k+"L"]||0, B=t[k+"B"]||0, U=t[k+"U"]||0, est = B>=5 ? S*L/B : null;
+    return `<tr><td>${nm}</td><td>${U.toLocaleString()}편</td><td>${S.toLocaleString()}편</td><td>${L.toLocaleString()}편</td><td>${est?Math.round(est).toLocaleString()+"편":"아직 적음"}</td><td>${est?Math.min(100,Math.round(U/est*100))+"%":"—"}</td></tr>`; };
+  const pend = [s.cat_todo?`작품 목록 ${s.cat_todo.toLocaleString()}편`:"", s.old_left?`옛 영상 다시 판정 ${s.old_left.toLocaleString()}편`:"", s.tab_left?`채널 첫 등록 ${s.tab_left.toLocaleString()}곳`:""].filter(Boolean);
+  $("#newBody").innerHTML = `<div class="kv"><div><span>쌓기 시작</span><b>${esc(s.since||"—")}</b></div><div><span>지켜보는 채널</span><b>${(s.ch||0).toLocaleString()}곳</b></div><div><span>그중 영화 채널 판단</span><b>${(s.film||0).toLocaleString()}곳</b></div>
+      <div><span>작품이 잡힌 영상</span><b>${(s.vids||0).toLocaleString()}편</b></div><div><span>오늘 쓴 키</span><b>${(s.units||0).toLocaleString()}유닛</b></div><div><span>막힌 횟수</span><b>${s.block||0}번</b></div></div>
+    <div class="nwn">${pend.length?`아직 쌓는 중: ${pend.join(" · ")} — 끝날 때까지 새 숫자는 실제보다 적어요. `:""}RSS는 채널당 최신 15편만 보여서, 처음 며칠은 특히 적게 잡혀요.</div>
+    <div class="h5">얼마나 찾나 <span class="m" style="font-weight:500;color:var(--ink3)">최근 30일 · 검색과 장부가 겹치는 양으로 추정 (실제 전체는 이보다 많을 수 있음)</span></div>
+    <table class="nwt"><tr><th>조회수</th><th>합쳐 찾음</th><th>검색</th><th>채널 장부</th><th>추정 전체</th><th>찾은 비율</th></tr>${cov("b10","10만 이상")}${cov("b1","1만~10만")}${cov("b0","1만 미만")}</table>
+    <div class="h5">판정이 다른 작품 <span class="m" style="font-weight:500;color:var(--ink3)">30일 최고 차이가 큰 순 · 앞 60편 · 눌러서 비교</span></div>
+    ${diff.length?`<div class="tbl-wrap"><table class="nwt"><tr><th>작품</th><th>옛 판정</th><th>새 판정</th><th>30일 경쟁 옛</th><th>새</th><th>30일 최고 옛</th><th>새</th></tr>${diff.slice(0,60).map(w => { const n = NEW.w[w.i], c = w.cp||{};
+      return `<tr data-w="${esc(w.i)}"><td>${esc(w.n)}</td><td>${esc(enOf(w).v)}</td><td class="dif">${esc(n.v)}</td><td>${c.ch??0}곳 ${c.n??0}편</td><td>${n.ch}곳 ${n.n}편</td><td>${fmt(c.m30||null)}</td><td>${fmt(n.m30||null)}</td></tr>`; }).join("")}</table></div>`:'<div class="nwn">아직 없어요.</div>'}`;
+  bind();
+}
+
 // ── 잠금 풀기 ──
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 async function unlock(box, pw){
@@ -416,10 +477,10 @@ async function start(){
   const box = await loadBox();
   if(!box){ $("#lock").classList.remove("hidden"); $("#lockMsg").textContent = "아직 자료가 없어요 — 첫 실행이 끝나면 생겨요."; return; }
   let pw = null; try{ pw = localStorage.getItem("yd_pw"); }catch(e){}
-  if(pw){ try{ return show(await unlock(box, pw)); }catch(e){} }
+  if(pw){ try{ const d = await unlock(box, pw); PW = pw; show(d); startNew(); return; }catch(e){} }
   $("#lock").classList.remove("hidden"); $("#pw").focus();
   $("#lockForm").onsubmit = async ev => { ev.preventDefault(); const p = $("#pw").value; $("#lockMsg").textContent = "여는 중…";
-    try{ const d = await unlock(box, p); try{ localStorage.setItem("yd_pw", p); }catch(e){} $("#lock").classList.add("hidden"); show(d); }
+    try{ const d = await unlock(box, p); try{ localStorage.setItem("yd_pw", p); }catch(e){} $("#lock").classList.add("hidden"); PW = p; show(d); startNew(); }
     catch(e){ $("#lockMsg").textContent = "비밀번호가 달라요."; } };
 }
 $("#relock").onclick = () => { try{ localStorage.removeItem("yd_pw"); }catch(e){} location.reload(); };
@@ -663,6 +724,7 @@ function openW(i){
       <div><span>최근 30일 경쟁</span><b>${c.ch??0}곳 ${c.n??0}편</b></div><div><span>30일 최고</span><b>${fmt(c.m30||null)}</b></div></div>
     <div class="cmp">${esc(e.why||"")}${(e.how||[]).length?"<br>때: "+e.how.map(esc).join(" · "):""}${c.n?`<br>1위 몫 ${c.share}% · 지난 7일 ${c.r7}편${c.surge?" · 지난주 급증":""} · 검색·최근 업로드 표본이라 실제보다 적을 수 있음`:""}</div>
     ${(c.riv||[]).length?`<div class="h5">최근 30일 경쟁 채널</div><div class="riv">${c.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    ${newBlock(w)}
     ${w.probe ? addForm(w) : ""}
     ${mkForm(w)}
     <div class="links" style="margin-top:14px"><a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">유튜브 검색</a><a href="https://www.youtube.com/hashtag/${t}/shorts" target="_blank" rel="noopener">#${esc(w.tag)}</a>

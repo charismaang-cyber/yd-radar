@@ -13,6 +13,7 @@ import yt, lock, actors, discover, ott
 if sys.stdout:
     sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
+FEED, SEEN = {}, set()  # 병행 운행(ledger.py)에 넘길 것: 이번 회차에 API 로 받은 영상 · 검색에 보인 영상. 옛 숫자엔 안 쓴다
 KST = timezone(timedelta(hours=9))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
 R, RUN, E = CFG["rule"], CFG["run"], CFG["entry"]
@@ -166,6 +167,7 @@ def scan_work(w, key, mode, log, prev=None):
     again = [v[0] for v in prev.get("v", []) if v[4] >= 100000][:50] if refresh else []
     ask = new + again
     meta = yt.videos(ask, key) if ask else {}
+    FEED.update(meta); SEEN.update(found)
     ok = matcher(w)
     vids, off_ch = {}, set(prev.get("off", []))
     for i, v in known.items():
@@ -684,6 +686,13 @@ def main():
             f.write(body)
         os.replace(path + ".tmp", path)
     log(f"끝: 이번 {done}편, 누적 {data['scanned']}/{data['total']}편, 막 뜸 {len(data['hot'])}, 감시 채널 {len(data['channels'])}, 오늘 {data['units']}유닛")
+    try:  # 병행 운행에 넘김 — 실패해도 옛 숫자와 상관없음
+        p = os.path.join(a.out, "ledger_in.enc.json")
+        with open(p + ".tmp", "w", encoding="utf-8") as f:
+            f.write(json.dumps(lock.seal({"feed": FEED, "seen": sorted(SEEN)}, pw)))
+        os.replace(p + ".tmp", p)
+    except Exception as e:
+        log(f"장부 넘기기 실패: {e}")
 
 
 if __name__ == "__main__":
