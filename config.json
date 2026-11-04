@@ -69,5 +69,11 @@
             "blue_max_ch": 1, "blue_max_posts": 3, "go_max_comp": 35, "avoid_comp": 60,
             "rise_days": 30, "rise_views": 100000, "rise_max": 150,
             "_설명": "아모르 천상계영드 3기(11-01) 꿀통레이더의 진입 판정을 우리 자료로. 경쟁강도 = 최근 comp_days일 남의 쇼츠 채널 수×w_channel + 편수×w_post (+지난주 급증 w_surge), 100 만점. GO = 수요 있음 + (블루오션: 30일 채널 blue_max_ch곳·blue_max_posts편 이하 | 막 튐: 3일 10만+·배우 타이밍 제때·시즌·트렌드·30일 100만+ 이면서 경쟁강도 go_max_comp 미만). 피함 = 경쟁강도 avoid_comp 이상·저작권 높음·방송사·쇼츠 5개 미만"},
+  "ott": {"minutes": 3, "refresh_days": 14,
+          "alias": {"수츠": ["슈츠", "Suits"], "닥터 하우스": ["하우스"], "오피스": ["The Office"], "킹스맨": ["킹스맨: 시크릿 에이전트"], "이퀄라이저": ["더 이퀄라이저"],
+                    "나우 유 씨 미": ["나우 유 씨 미: 마술사기단"], "캐슬": ["Castle"], "몽크": ["Monk"], "모던 패밀리": ["Modern Family"], "영 셸든": ["Young Sheldon"],
+                    "강철중": ["공공의 적 1-1: 강철중"], "가문의 위기": ["가문의 영광 2: 가문의 위기"], "가문의 부활": ["가문의 영광 3: 가문의 부활"],
+                    "가문의 수난": ["가문의 영광 4: 가문의 수난"], "가문의 귀환": ["가문의 영광 5: 가문의 귀환"]},
+          "_설명": "저스트워치 한국에서 구독 시청처 조회: 회차마다 minutes 분, refresh_days 뒤 다시. alias = 작품 이름과 저스트워치 제목이 다른 것"},
   "issues_url": "https://charismaang-cyber.github.io/daily-flow/data.json"
 }

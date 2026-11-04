@@ -8,7 +8,7 @@
 import os, re, sys, json, math, time, argparse, urllib.request
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone, timedelta
-import yt, lock, actors, discover
+import yt, lock, actors, discover, ott
 
 if sys.stdout:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -451,6 +451,9 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
         rec = st["works"].get(w["i"])
         j["at"] = kst(rec["at"]).strftime("%m-%d %H:%M") if rec else None
         j["risk"], j["riskwhy"] = risk_of(w, [v[2] for v in (rec or {}).get("v", [])] + (rec or {}).get("off", []))
+        o = (st.get("ott") or {}).get(w["i"])
+        if o:
+            j["ott"] = o["s"] if o["f"] else None
         if w["i"] in iss:
             j["issue"] = iss[w["i"]]
     # RSS 로 잡힌 급상승 → 작품에 붙이고, 못 알아본 건 소재 피드로
@@ -656,6 +659,12 @@ def main():
         watch_round(st, works, log)
     except yt.Blocked as e:
         st["err"].append(f"{today} RSS 막힘 {e}")
+    if CFG.get("ott"):
+        try:
+            ott.refresh(st, works, CFG["ott"], now_min(), log)
+        except Exception as e:
+            st["err"].append(f"{today} 시청처: {type(e).__name__} {e}"[:200])
+            log(f"시청처 못 받음: {e}")
     keep = {w["i"] for w in works}
     st["works"] = {k: v for k, v in st["works"].items() if k in keep}
     st["units"] = dict(sorted(st["units"].items())[-10:])
