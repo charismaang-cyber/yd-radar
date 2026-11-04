@@ -33,7 +33,7 @@
 .s-busy{background:var(--busy)}.s-weak,.s-few{background:var(--weak)}.s-none{background:transparent;color:var(--ink3);border:1px dashed var(--line)}
 .r{background:transparent;border:1px solid currentColor}
 .r-낮음{color:var(--honey)}.r-중간{color:var(--revive)}.r-높음{color:var(--hot)}.r-방송{color:#8b6fd6}.r-\?{color:var(--ink3)}
-.tg.act{background:#8b6fd6}.tg.disc{background:#4f8a8b}.tg.ott{background:transparent;color:var(--ink2);border:1px solid var(--line)}
+.tg.act{background:#8b6fd6}.tg.disc{background:#4f8a8b}.tg.ott{background:transparent;color:var(--ink2);border:1px solid var(--line)}.tg.ott0{background:transparent;color:var(--ink3);border:1px dashed var(--line);font-weight:500}
 .acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:14px;padding-top:14px}
 .ac{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px}
 .ac.now{border-color:var(--hot)}
@@ -388,8 +388,10 @@ const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}
 // 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
 const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
 const OTTS = ["넷플릭스","디즈니+","티빙","왓챠","웨이브"];
-const ottTag = w => (w.ott||[]).map(s => `<span class="tg ott" title="한국에서 구독으로 볼 수 있음 (저스트워치 기준)">${esc(s)}</span>`).join(" ");
-const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"")+(w.auto==="disc"?' <span class="tg disc" title="위키백과 한국 영화·OTT 드라마 후보 중 #제목 쇼츠 화면에 50만+ 쇼츠가 있어 저절로 올라온 작품 (결은 위키백과 분류로 짐작)">자동 발굴</span>':"")+(w.ott&&w.ott.length?" "+ottTag(w):"");
+const OTT0 = {wait:["시청처 확인 중","아직 저스트워치에 물어보지 않았어요. 30분마다 조금씩 채워져요"], miss:["시청처 못 찾음","저스트워치에서 이 작품을 못 찾았어요. 어디에도 없다는 뜻은 아니에요"], none:["구독 없음","저스트워치에 구독으로 볼 곳이 없어요 (대여·구매만이거나 없음). 쿠팡플레이처럼 자료가 빠진 경우도 있어요"]};
+const ott0 = w => w.ott===undefined ? OTT0.wait : w.ott===null ? OTT0.miss : w.ott.length ? null : OTT0.none;
+const ottTag = w => { const z = ott0(w); return z ? `<span class="tg ott0" title="${esc(z[1])}">${esc(z[0])}</span>` : w.ott.map(s => `<span class="tg ott" title="한국에서 구독으로 볼 수 있음 (저스트워치 기준)">${esc(s)}</span>`).join(" "); };
+const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"")+(w.auto==="disc"?' <span class="tg disc" title="위키백과 한국 영화·OTT 드라마 후보 중 #제목 쇼츠 화면에 50만+ 쇼츠가 있어 저절로 올라온 작품 (결은 위키백과 분류로 짐작)">자동 발굴</span>':"")+" "+ottTag(w);
 
 let D = null, W = {}, opt = {bc:false, noRisk:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
@@ -629,7 +631,7 @@ function drawTable(){
   $("#cAll").textContent = ws.length;
   $("#tbl").innerHTML = `<thead><tr>${COLS.map(([k,n]) => `<th data-s="${k}" class="${opt.sort===k?"on":""}">${n}${opt.sort===k?(opt.asc?" ▲":" ▼"):""}</th>`).join("")}</tr></thead><tbody>`
     + ws.map(w => `<tr data-w="${esc(w.i)}"><td><span class="w">${esc(w.n)}</span> <span class="m" style="color:var(--ink3)">${esc(w.y)}</span></td><td>${esc(w.g)}</td><td>${esc(w.k)} · ${esc(w.d)}</td>
-      <td>${enTag(w)}</td><td>${stTag(w.st)}</td><td>${rkTag(w)}</td><td>${(w.ott||[]).map(esc).join(" · ")||"—"}</td><td class="n">${w.cp?`${w.cp.ch}곳 ${w.cp.n}편`:"—"}</td><td class="n">${w.n100??"—"}</td><td class="n">${fmt((w.top||{}).v)}</td><td class="n">${w.alive??"—"}</td>
+      <td>${enTag(w)}</td><td>${stTag(w.st)}</td><td>${rkTag(w)}</td><td>${ott0(w) ? `<span style="color:var(--ink3)">${esc(ott0(w)[0].replace("시청처 ",""))}</span>` : w.ott.map(esc).join(" · ")}</td><td class="n">${w.cp?`${w.cp.ch}곳 ${w.cp.n}편`:"—"}</td><td class="n">${w.n100??"—"}</td><td class="n">${fmt((w.top||{}).v)}</td><td class="n">${w.alive??"—"}</td>
       <td class="n">${w.r60big??"—"}</td><td class="n">${w.gap!=null?w.gap+"일 전":"—"}</td><td class="n">${(w.ht||[])[0]!=null?w.ht[0].toLocaleString():"—"}</td><td>${esc(w.at||"—")}</td></tr>`).join("") + "</tbody>";
   document.querySelectorAll("#tbl th").forEach(th => th.onclick = () => { const k = th.dataset.s; opt.asc = opt.sort===k ? !opt.asc : !["n100","top","alive","gap"].includes(k); opt.sort = k; drawTable(); });
   bind();
@@ -651,7 +653,7 @@ function openW(i){
   $("#mbody").innerHTML = `<button class="x" id="mx" aria-label="닫기">×</button>
     <h2>${esc(w.n)}</h2><div class="sub">${esc(w.y)} · ${esc(w.k)} · ${esc(w.d)} · ${esc(w.g)} · 잰 때 ${esc(w.at||"아직")}</div>
     <div class="tgs" style="margin-top:8px">${tagsOf(w)}</div>
-    <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li>${w.ott===undefined?"":`<li>시청처: ${w.ott===null?"저스트워치에서 못 찾음":w.ott.length?w.ott.map(esc).join(", "):"구독 서비스에는 없음 (대여·구매만이거나 없음)"}</li>`}${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.act?w.act.map(x=>`<li>배우 타이밍: ${esc(x)}</li>`).join(""):""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
+    <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li><li>시청처: ${ott0(w) ? esc(ott0(w)[1]) : w.ott.map(esc).join(", ")}</li>${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.act?w.act.map(x=>`<li>배우 타이밍: ${esc(x)}</li>`).join(""):""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
     <div class="kv"><div><span>남의 최고</span><b>${fmt((w.top||{}).v)}</b></div><div><span>100만+</span><b>${w.n100??"—"}편</b></div><div><span>50만+</span><b>${w.n50??"—"}편</b></div>
       <div><span>6개월 생존 100만+</span><b>${w.alive??"—"}편</b></div><div><span>최근 60일 올라온 것</span><b>${w.r60??"—"}편</b></div><div><span>그중 50만+</span><b>${w.r60big??"—"}편</b></div>
       <div><span>마지막 업로드</span><b>${w.gap!=null?w.gap+"일 전":"—"}</b></div><div><span>#${esc(w.tag)}</span><b>${(w.ht||[])[0]!=null?w.ht[0].toLocaleString()+"개":"—"}</b></div></div>
