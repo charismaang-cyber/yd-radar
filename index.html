@@ -317,8 +317,8 @@ td .w{font-weight:700}
       <div class="rule"><b>진입 판정</b>(아모르 꿀통레이더 방식, 위 상태와 따로) — 막 튀었나? 블루오션인가? 둘 중 하나면 <b>GO</b> · 붐비거나 저작권 높으면 <b>피함</b> · 점수 = 수요 40% + 온도 20% + 여유(100−경쟁강도) 40%</div>
     </section>
 
-    <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · 저작권 낮은 것 먼저</div></div>
-    <section class="card panel sparkle"><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button></section>
+    <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · GO 먼저, 그다음 차선 · 피함은 맨 아래에 접어 둠</div></div>
+    <section class="card panel sparkle"><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button><button class="more hidden" id="todayAvBtn"></button><div class="cards hidden" id="todayAv" style="margin-top:14px"></div><button class="more hidden" id="todayAvMore">더 보기</button></section>
 
     <div class="sec-h" id="entry"><div><span class="eyebrow">ENTRY SCORE</span><h2>진입 성적표<em id="cEntry"></em></h2></div><div class="at">최근 30일 같은 작품 만든 채널 수가 적을수록 기회 · 100만이어도 식었으면 다시 만들 자리</div></div>
     <section class="card panel"><div class="bar" id="enChips"></div><div class="ens" id="enList"></div><button class="more hidden" id="enMore">더 보기</button></section>
@@ -509,7 +509,8 @@ function show(d){
 }
 function draw(){
   const ws = D.works.filter(vis), cnt = st => ws.filter(w=>w.st===st).length;
-  const good = ws.filter(w => w.st==="꿀통" || w.st==="심정지 재진입").sort(byGood);
+  const pool = ws.filter(w => w.st==="꿀통" || w.st==="심정지 재진입"), isAv = w => enOf(w).v==="피함";
+  const good = pool.filter(w => !isAv(w)).sort(byEntry), avoid = pool.filter(isAv).sort(byEntry);
   $("#summary").textContent = `작품 ${D.scanned}/${D.total}편을 쟀고, 지금 들어가기 좋은 것 ${good.length}편`;
   $("#note").textContent = `30분마다 오래된 작품부터 다시 잼 · 이번 방식: ${D.mode} · 오늘 유튜브 키 ${D.units.toLocaleString()}유닛`;
   $("#errs").textContent = D.mode.includes("막힘") ? "유튜브가 서버 긁기를 막아서 API 검색으로 돌고 있어요(하루 약 30편만)." : "";
@@ -519,7 +520,7 @@ function draw(){
   $("#tiles").innerHTML = tiles.map(([n,v,c]) => `<div class="card tile"><div class="nm">${n}</div><div class="px" style="${c?`color:var(--${c})`:""}">${v}</div></div>`).join("");
   $("#nToday").textContent = good.length; $("#nHot").textContent = D.hot.length || ""; $("#nAll").textContent = D.total; $("#nChan").textContent = D.channels.length;
   $("#nGo").textContent = nGo || ""; $("#nRise").textContent = (D.rise||[]).length || ""; $("#nCal").textContent = (D.cal||[]).length || "";
-  drawToday(good); drawEntry(); drawHot(); drawRise(); drawActor(); drawCal(); drawMap(); drawSeason(); drawTable(); drawChan();
+  drawToday(good, avoid); drawEntry(); drawHot(); drawRise(); drawActor(); drawCal(); drawMap(); drawSeason(); drawTable(); drawChan();
 }
 // 진입 성적표 (아모르 꿀통레이더 STEP 4·5): 경쟁도와 온도 → 막 튀었나? 블루오션인가?
 let enN = 18;
@@ -631,12 +632,20 @@ function card(w){
     <div class="why">${esc((w.why||[]).slice(1).join(" · "))}</div>
     ${w.ans?`<div class="why">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</div>`:""}</div></button>`;
 }
-let todayN = 12;
-function drawToday(good){
+let todayN = 12, avN = 12, avOpen = false;
+function drawToday(good, avoid){
   $("#cToday").textContent = good.length;
   $("#todayList").innerHTML = good.length ? good.slice(0, todayN).map(card).join("") : `<div class="empty">아직 없어요. 작품을 다 재면(첫날 몇 시간) 채워져요.</div>`;
   $("#todayMore").classList.toggle("hidden", good.length <= todayN);
-  $("#todayMore").onclick = () => { todayN += 12; drawToday(good); bind(); };
+  $("#todayMore").onclick = () => { todayN += 12; drawToday(good, avoid); };
+  // 피함은 목록에서 빼되 접어 둬서 볼 수는 있게
+  $("#todayAvBtn").classList.toggle("hidden", !avoid.length);
+  $("#todayAvBtn").textContent = avOpen ? `피함 ${avoid.length}편 접기` : `피함 ${avoid.length}편 보기 (붐비거나 저작권 높은 작품)`;
+  $("#todayAvBtn").onclick = () => { avOpen = !avOpen; drawToday(good, avoid); };
+  $("#todayAv").classList.toggle("hidden", !avOpen);
+  $("#todayAv").innerHTML = avOpen ? avoid.slice(0, avN).map(card).join("") : "";
+  $("#todayAvMore").classList.toggle("hidden", !avOpen || avoid.length <= avN);
+  $("#todayAvMore").onclick = () => { avN += 12; drawToday(good, avoid); };
   bind();
 }
 function relCard(r){
