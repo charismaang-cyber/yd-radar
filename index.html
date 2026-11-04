@@ -317,7 +317,7 @@ td .w{font-weight:700}
       <div class="rule"><b>진입 판정</b>(아모르 꿀통레이더 방식, 위 상태와 따로) — 막 튀었나? 블루오션인가? 둘 중 하나면 <b>GO</b> · 붐비거나 저작권 높으면 <b>피함</b> · 점수 = 수요 40% + 온도 20% + 여유(100−경쟁강도) 40%</div>
     </section>
 
-    <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · GO 먼저, 그다음 차선 · 피함은 맨 아래에 접어 둠</div></div>
+    <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · 수요(100만+ 많은 구간) → GO·차선 → 정답지 편수 순 · 피함은 맨 아래에 접어 둠</div></div>
     <section class="card panel sparkle"><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button><button class="more hidden" id="todayAvBtn"></button><div class="cards hidden" id="todayAv" style="margin-top:14px"></div><button class="more hidden" id="todayAvMore">더 보기</button></section>
 
     <div class="sec-h" id="entry"><div><span class="eyebrow">ENTRY SCORE</span><h2>진입 성적표<em id="cEntry"></em></h2></div><div class="at">최근 30일 같은 작품 만든 채널 수가 적을수록 기회 · 100만이어도 식었으면 다시 만들 자리</div></div>
@@ -396,6 +396,9 @@ const EN_RANK = {"GO":0,"차선":1,"보류":2,"피함":3,"미확인":4};
 const enOf = w => w.en || {v:"미확인"};
 const enTag = w => { const e = enOf(w); return `<span class="tg ${EN[e.v][0]}" title="진입 판정: ${esc(EN[e.v][1])}${e.why?" — "+esc(e.why):""}">${esc(e.v)}${e.s!=null?" "+Math.round(e.s):""}</span>`; };
 const byEntry = (a,b) => EN_RANK[enOf(a).v]-EN_RANK[enOf(b).v] || (enOf(b).s??-999)-(enOf(a).s??-999);
+// 체크 순서: 수요(남의 100만+ 5편↑ → 2~4편 → 1편) → 경쟁(GO → 차선) → 제작 지속성(정답지 편수) → 점수
+const demandTier = w => (w.n100||0)>=5 ? 0 : (w.n100||0)>=2 ? 1 : 2;
+const byDemand = (a,b) => demandTier(a)-demandTier(b) || EN_RANK[enOf(a).v]-EN_RANK[enOf(b).v] || ((b.ans||{}).n||0)-((a.ans||{}).n||0) || (enOf(b).s??-999)-(enOf(a).s??-999);
 const stTag = st => `<span class="tg s-${ST[st][0]}" title="${esc(ST[st][1])}">${esc(st)}</span>`;
 const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
 // 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
@@ -510,7 +513,7 @@ function show(d){
 function draw(){
   const ws = D.works.filter(vis), cnt = st => ws.filter(w=>w.st===st).length;
   const pool = ws.filter(w => w.st==="꿀통" || w.st==="심정지 재진입"), isAv = w => enOf(w).v==="피함";
-  const good = pool.filter(w => !isAv(w)).sort(byEntry), avoid = pool.filter(isAv).sort(byEntry);
+  const good = pool.filter(w => !isAv(w)).sort(byDemand), avoid = pool.filter(isAv).sort(byDemand);
   $("#summary").textContent = `작품 ${D.scanned}/${D.total}편을 쟀고, 지금 들어가기 좋은 것 ${good.length}편`;
   $("#note").textContent = `30분마다 오래된 작품부터 다시 잼 · 이번 방식: ${D.mode} · 오늘 유튜브 키 ${D.units.toLocaleString()}유닛`;
   $("#errs").textContent = D.mode.includes("막힘") ? "유튜브가 서버 긁기를 막아서 API 검색으로 돌고 있어요(하루 약 30편만)." : "";
