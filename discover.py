@@ -105,6 +105,44 @@ def anime_step(st, cfg, log, today, minutes):
     log(f"작품 늘리기: 애니 후보 {sum(c.get('k') == '애니' for c in d['cand'].values())}편 · 남은 분류 {len(a['tree']) + len(a['roots'])}개")
 
 
+# 방송 드라마 후보 — 방송사 화면이라도 빼지 않는다(화면에 저작권 높음으로 표시, 쓸지는 직접 판단)
+DRAMA_CAT = re.compile(r"드라마|시트콤|사극|연속극")
+KOR_TV = re.compile(r"대한민국|문화방송|MBC|KBS|한국방송공사|SBS|서울방송|tvN|JTBC|TV ?조선|채널 ?A|MBN|OCN|ENA", re.I)
+DRA_D = [("MBC", r"문화방송|MBC"), ("KBS", r"KBS|한국방송공사"), ("SBS", r"SBS|서울방송"), ("JTBC", r"JTBC"), ("tvN", r"tvN"), ("TV조선", r"TV ?조선"),
+         ("채널A", r"채널 ?A"), ("MBN", r"MBN"), ("OCN", r"OCN"), ("ENA", r"ENA")]
+
+
+def drama_step(st, cfg, log, today, minutes):
+    """방송 드라마 후보 모으기: 위키 'N년 시작한 대한민국의 텔레비전 프로그램' + 'N년 텔레비전 드라마'(거침없이 하이킥·전원일기는 여기에만 있음, 한국 방송사 분류가 있는 것만).
+       OTT 오리지널은 candidates() 쪽. 회차마다 minutes 분씩 이어 받아 다른 작품 재기를 안 막는다."""
+    d, now, t0 = st["disc"], int(time.time() // 60), time.time()
+    a = d.setdefault("dra", {"m": 0, "roots": []})
+    if not a["roots"]:
+        if now - a["m"] < cfg["refresh_days"] * 1440:
+            return
+        a.update(m=now, roots=[f"{y}{x}" for y in range(cfg["drama_from_year"], today.year + 1) for x in ("년 텔레비전 드라마", "년 시작한 대한민국의 텔레비전 프로그램")])
+    while a["roots"] and time.time() - t0 < minutes * 60:
+        try:
+            new = {}
+            for t, cats in _members_with_cats(a["roots"].pop()).items():
+                s = " ".join(cats)
+                if t in d["cand"] or re.match(r"(틀|위키백과|포털|사용자|모듈|도움말|파일|분류):", t) or re.search(r"목록|등장인물", t) \
+                        or OTT_CAT.search(s) or not DRAMA_CAT.search(s) or "예능" in s or not KOR_TV.search(s):
+                    continue
+                ys = [int(x) for x in re.findall(r"(\d{4})년 (?:시작한|텔레비전 드라마)", s)]
+                g = gyeol_of(cats)
+                new[t] = {"n": actors.short(t), "y": min(ys) if ys else 0, "k": "방송", "g": "방송 드라마" if g == "기타(자동)" else g,
+                          "d": next((n for n, p in DRA_D if re.search(p, s, re.I)), "")}
+            amb = [t for t, c in new.items() if actors.short(t) != t or plain_len(c["n"]) < 3]
+            who = casts(amb, log) if amb else {}
+            for t in amb:
+                new[t].update(amb=True, cast=who[t])
+            d["cand"].update(new)
+        except Exception as e:
+            log(f"작품 늘리기: 방송 드라마 분류 못 받음 {e}")
+    log(f"작품 늘리기: 방송 드라마 후보 {sum(c.get('k') == '방송' for c in d['cand'].values())}편 · 남은 분류 {len(a['roots'])}개")
+
+
 def gyeol_of(cats):
     s = " ".join(cats)
     for g, pat in GYEOL:

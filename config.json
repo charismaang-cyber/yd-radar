@@ -54,7 +54,8 @@
     {"k": "애니 로맨스·일상", "side": "공통", "d": "로맨스·일상 애니(카구야·스파이 패밀리·봇치)."},
     {"k": "애니 영화(일본)", "side": "공통", "d": "지브리·신카이 등 일본 극장 애니."},
     {"k": "애니 영화(일본 밖)", "side": "공통", "d": "디즈니·픽사 등 해외 극장 애니."},
-    {"k": "애니 기타", "side": "공통", "d": "자동 발굴된 애니 중 장르를 못 정한 것."}
+    {"k": "애니 기타", "side": "공통", "d": "자동 발굴된 애니 중 장르를 못 정한 것."},
+    {"k": "방송 드라마", "side": "공통", "d": "자동 발굴된 방송 드라마 중 결을 못 정한 것. 방송사 화면이라 저작권 높음."}
   ],
   "seasons": [
     {"n": "수능", "date": "2026-11-19", "g": ["학교·학폭 응징"]},
@@ -74,7 +75,7 @@
   "actors": {"after_days": 45, "before_days": 45, "leads": 3, "films_per_actor": 5, "refresh_hours": 24, "rescan_hours": 24,
              "_설명": "곧 시작(before_days 안)·시작한 지 after_days 안인 드라마(TV·OTT)·영화의 주연 leads명, 배우마다 지난 한국 영화 films_per_actor편을 하루 한 번 새로 찾아 rescan_hours마다 잰다"},
   "discover": {"from_year": 1990, "ott_from_year": 2016, "refresh_days": 30, "rescreen_days": 60, "screen_minutes": 8,
-               "min_top": 500000, "max_works": 2500, "anime_from_year": 1960, "anime_minutes": 6, "anime_trees": ["일본의 텔레비전 애니메이션", "대한민국의 텔레비전 애니메이션", "미국의 텔레비전 애니메이션", "일본의 오리지널 애니메이션"],
+               "min_top": 500000, "max_works": 2500, "anime_from_year": 1960, "anime_minutes": 6, "drama_from_year": 1980, "drama_minutes": 3, "anime_trees": ["일본의 텔레비전 애니메이션", "대한민국의 텔레비전 애니메이션", "미국의 텔레비전 애니메이션", "일본의 오리지널 애니메이션"],
                "_설명": "위키백과 한국 영화(from_year~작년)·OTT 오리지널 드라마를 후보로, #제목 쇼츠 화면에서 min_top 넘는 쇼츠가 있으면 작품으로 올림(최대 max_works)"},
   "entry": {"comp_days": 30, "surge_days": 7, "w_channel": 5, "w_post": 3, "w_surge": 10,
             "blue_max_ch": 1, "blue_max_posts": 3, "go_max_comp": 35, "avoid_comp": 60,

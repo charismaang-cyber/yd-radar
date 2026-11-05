@@ -145,7 +145,7 @@ def matcher(w):
 
 def risk_of(w, chans):
     if w["k"] == "방송":
-        return "방송", "방송사 화면 — 우리 규칙상 제작 X"
+        return "높음", "방송사 화면 — 방송사 금지 규칙"  # 빼지 않고 표시만 한다(쓸 수도 있음 — 11-05 사용자)
     if w["k"] == "애니":  # 라필 책은 영화 배급사만 다룬다. 위험해도 빼지 않고 표시만 한다(쓸 수도 있음 — 11-05 사용자)
         for x, why in CFG["risk_anime"].items():
             if x.lower() in w["d"].lower():
@@ -322,7 +322,7 @@ def entry(j, timing):
     popped = bool(j.get("hot")) or bool(hows) or cp.get("m30", 0) >= R["big"]
     if j["st"] == "쇼츠 거의 없음":
         v, why = "피함", "쇼츠 5개 미만 — 배급사가 지운 것일 수 있음"
-    elif j.get("risk") in ("높음", "방송") and j.get("k") != "애니":  # 애니는 저작권 높음 표시만 하고 경쟁으로 판정(점수에서 15 깎임)
+    elif j.get("risk") in ("높음", "방송") and j.get("k") not in ("애니", "방송"):  # 애니·방송은 저작권 높음 표시만 하고 경쟁으로 판정(점수에서 15 깎임)
         v, why = "피함", ("방송사 작품 — 우리 규칙 X" if j["risk"] == "방송" else "저작권 높음 — " + j.get("riskwhy", ""))
     elif comp >= E["avoid_comp"]:
         v, why = "피함", f"붐빔 · {c30}" + (" · 지난주 급증" if cp.get("surge") else "")
@@ -539,7 +539,7 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
     for g in CFG["gyeol"]:
         ids = sorted([j["i"] for j in J.values() if j["g"] == g["k"]],
                      key=lambda i: (ST_RANK[J[i]["st"]], -(J[i].get("n100") or 0), -((J[i].get("top") or {}).get("v") or 0)))
-        gy.append(dict(g, ids=ids, pass_=sum(J[i]["st"] in ("꿀통", "심정지 재진입") and J[i]["k"] != "방송" for i in ids),
+        gy.append(dict(g, ids=ids, pass_=sum(J[i]["st"] in ("꿀통", "심정지 재진입") for i in ids),
                        cand=sum(J[i]["st"] == "후보" for i in ids)))
     chans = sorted(({"cid": c, "t": v["t"], "n100": v["n100"],
                      "works": sorted({J[wi]["n"] for wi in chan_works.get(c, ()) if wi in J})[:8]}
@@ -633,19 +633,21 @@ def main():
             d.setdefault(k, {})
         try:
             if now - d.get("m", 0) >= DC["refresh_days"] * 1440 or d.get("ver") != discover.VER:
-                d["cand"], d["m"] = {**{k: c for k, c in d["cand"].items() if c.get("k") == "애니"}, **discover.candidates(DC, log, kst(now).date())}, now
+                d["cand"], d["m"] = {**{k: c for k, c in d["cand"].items() if c.get("k") in ("애니", "방송")}, **discover.candidates(DC, log, kst(now).date())}, now
                 if d.get("ver") != discover.VER:  # 찾는 법이 바뀌었으니 전에 아무것도 못 본 작품은 바로 다시
                     d["seen"] = {k: s for k, s in d["seen"].items() if s[1] is not None or s[2]}
                     d["ver"] = discover.VER
             if DC.get("anime_from_year"):
                 discover.anime_step(st, DC, log, kst(now).date(), DC.get("anime_minutes", 6))
-            # 직접 넣은 애니의 다른 이름(심슨 가족·포켓몬스터·신세기 에반게리온)이 자동 발굴에서 또 올라오지 않게
-            discover.screen(st, DC, {w["tag"] for w in base} | {re.sub(r"\s", "", a) for w in base if w["k"] == "애니" for a in w["names"]}, DC["screen_minutes"], log)
+            if DC.get("drama_from_year"):
+                discover.drama_step(st, DC, log, kst(now).date(), DC.get("drama_minutes", 3))
+            # 직접 넣은 애니·방송의 다른 이름(심슨 가족·포켓몬스터·스카이캐슬)이 자동 발굴에서 또 올라오지 않게
+            discover.screen(st, DC, {w["tag"] for w in base} | {re.sub(r"\s", "", a) for w in base if w["k"] in ("애니", "방송") for a in w["names"]}, DC["screen_minutes"], log)
             discover.fill_dist(st, [x["key"] for x in discover.works(st, DC)], log)
         except Exception as e:
             st["err"].append(f"{today} 작품 늘리기: {type(e).__name__} {e}"[:200])
             log(f"작품 늘리기 못 함: {e}")
-        have = {w["i"] for w in base} | {norm(a) for w in base if w["k"] == "애니" for a in w["names"]}
+        have = {w["i"] for w in base} | {norm(a) for w in base if w["k"] in ("애니", "방송") for a in w["names"]}
         for x in discover.works(st, DC):
             i = norm(x["n"])
             if not i or i in have:

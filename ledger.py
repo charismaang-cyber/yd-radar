@@ -51,7 +51,7 @@ def cast_of(wiki, fallback=()):
 
 def catalog_sources(st, today):
     """위키 제목 → {n,y,k,d}: 자동 발굴 후보 + 올해 영화(후보는 작년까지) + 방송 드라마(알아보기만, 화면엔 안 나옴)"""
-    src = {t: c for t, c in ((st.get("disc") or {}).get("cand") or {}).items() if c.get("k") != "애니"}  # 애니 후보는 같은 이름 영화를 판모름으로 만든다 → 레이더에 오른 것만 아래 W: 로
+    src = {t: c for t, c in ((st.get("disc") or {}).get("cand") or {}).items() if c.get("k") not in ("애니", "방송")}  # 애니 후보는 같은 이름 영화를 판모름으로 만든다 → 레이더에 오른 것만 W: 로 (방송은 아래 2000년~ 줄에서)
     try:
         kor = [t for t, c in discover._members_with_cats(f"{today.year}년 영화", ["한국어 영화 작품", "대한민국의 영화 작품"]).items() if c]
         for t, cats in discover._cats(kor).items():
