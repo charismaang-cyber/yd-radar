@@ -24,6 +24,24 @@ OFFICIAL = re.compile(r"(SBS|KBS|MBC|tvN|JTBC|TV\s?CHOSUN|TV조선|채널A|MBN|E
                       r"디글|Diggle|옛드|옛능|스브스|오분순삭|엠뚜루마뚜루|깔깔티비|플레이무비|PLAYMOVIE|콘텐츠판다|Contents Panda|"
                       r"롯데엔터|Lotte Entertainment|쇼박스|SHOWBOX|NEW 공식|Plus M|플러스엠|메가박스|"
                       r"NBC|Universal|Warner|HBO|Paramount|Sony Pictures|Lionsgate|20th Century|Peacock|Prime Video|AMC|BBC|ABC|CBS|FOX|USA Network)", re.I)
+# 수요 숫자에서 뺄 영상 — 작품 장면이 아닌 것. OFFICIAL 과 달리 잴 때(v[6])가 아니라 판정할 때 보므로 옛 기록에도 바로 적용된다.
+# 11-05 썸네일로 분류한 표본 200개로 시험: 목록의 비장면 24% → 약 10%. 다른 작품이 섞인 영상·이름만 같은 영상은 못 잡는다.
+# «제목에 작품명 없음 + 좁은 채널» 은 12개 중 3개만 맞아 버렸다. 인성(조인성)·화보(영화보러)·캐스팅·공항은 멀쩡한 제목에 걸려서 뺐다.
+KIN_CH = re.compile(r"에나 ?클립|바이포엠|BY4M|메리크리스마스|마인드마크|EBS|열린공감", re.I)  # 배급사 관계 채널
+EVENT_T = re.compile(r"인터뷰|시사회|무대인사|제작발표|오픈토크|레드카펫|실물|직캠|쇼케이스|\bGV\b|뒤풀이|수상소감|시상식|청룡영화|부산국제영화제|BIFF|예고편|티저|최신 ?근황|배우 근황", re.I)
+EVENT_CH = re.compile(r"뉴스|news|ytn|star\b|스타|연예|셀럽|아이닷컴|top ?daily|톱데일리|k-culture|일상|비하인드 아카이빙|mtn", re.I)
+FILM_CH = re.compile(r"무비|영화|씬|시네|드라마|컷|movie|cine|film", re.I)  # 이름에 영화 낱말이 있으면 장면 채널 (무비맛스타·스타한컷)
+
+
+def not_scene(v, w):
+    """v = 기록 한 줄, w = 작품. 수요에서 뺄 영상이면 True"""
+    t, ch = v[1] or "", v[2] or ""
+    if KIN_CH.search(ch) or (EVENT_CH.search(ch) and not FILM_CH.search(ch)):
+        return True
+    for nm in {w["n"], w.get("tag") or "", re.split(r"[:：]", w["n"])[0]}:  # 작품 이름 속 낱말은 빼고 본다: 굿뉴스 ≠ 뉴스
+        if nm:
+            t = re.sub(re.escape(nm), " ", t, flags=re.I)
+    return bool(EVENT_T.search(t))
 
 
 def now_min():
@@ -207,7 +225,8 @@ def judge(w, rec, now):
     """책 기준으로 상태를 정한다"""
     if not rec:
         return {"st": "아직"}
-    vs = [v[:7] + [age_days(v[5], now)] for v in rec["v"] if not v[6]]  # 제3자만, 끝에 며칠 전인지
+    third = [v for v in rec["v"] if not v[6]]
+    vs = [v[:7] + [age_days(v[5], now)] for v in third if not not_scene(v, w)]  # 제3자의 장면만, 끝에 며칠 전인지
     big = [v for v in vs if v[4] >= R["big"]]
     alive = [v for v in big if v[7] is not None and v[7] >= R["alive_days"]]
     r60 = [v for v in vs if v[7] is not None and v[7] <= R["recent_days"]]
@@ -240,6 +259,8 @@ def judge(w, rec, now):
     if gap is not None: why.append(f"마지막 업로드 {gap}일 전")
     hv = rec["ht"][0]
     if hv is not None: why.append(f"#{w['tag']} 동영상 {hv:,}개")
+    cut = sum(v[4] >= R["big"] for v in third) - n100
+    if cut: why.append(f"행사·관계사 영상 100만+ {cut}편은 수요에서 뺌")
     pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
     return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
             "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
@@ -330,9 +351,10 @@ def ago_txt(d):
 def watch_round(st, works, log):
     big_ch = Counter()
     names = {}
-    for rec in st["works"].values():
+    wn = {w["i"]: w for w in works}
+    for wi, rec in st["works"].items():
         for v in rec["v"]:
-            if not v[6] and v[4] >= R["big"]:
+            if not v[6] and v[4] >= R["big"] and wi in wn and not not_scene(v, wn[wi]):
                 big_ch[v[3]] += 1; names[v[3]] = v[2]
     cids = [c for c, _ in big_ch.most_common(RUN["watch_max"])]
     st["watch"] = {c: {"t": names[c], "n100": big_ch[c]} for c in cids}
@@ -444,6 +466,7 @@ def actor_view(ac, ids, J, today):
 
 def build(st, works, iss, mode_note, errs, film_ids=None):
     now = now_min()
+    wn = {w["i"]: w for w in works}
     J = {w["i"]: dict(judge(w, st["works"].get(w["i"]), now),
                       **{k: w[k] for k in ("i", "n", "g", "k", "d", "y", "tag", "q")},
                       auto="disc" if w.get("auto") == "disc" else "actor" if w.get("auto") else "")
@@ -469,7 +492,8 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
                    "age": round(a, 1), "tags": it["tags"]}
             if it["w"]:
                 for wi in it["w"]:
-                    rss_hot[wi].append(row)
+                    if wi in wn and not not_scene([row["id"], row["t"], row["ch"]], wn[wi]):
+                        rss_hot[wi].append(row)
             else:
                 feed.append(row)
     for wi, rows in rss_hot.items():
@@ -480,7 +504,7 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
     chan_works = defaultdict(set)
     for wi, rec in st["works"].items():
         for v in rec["v"]:
-            if not v[6] and v[4] >= 100000:
+            if not v[6] and v[4] >= 100000 and wi in wn and not not_scene(v, wn[wi]):
                 chan_works[v[3]].add(wi)
     good = ("꿀통", "심정지 재진입", "후보")
     for j in J.values():
@@ -530,7 +554,7 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
             continue
         for v in rec["v"]:
             a = age_days(v[5], now)
-            if v[6] or a is None or a > E["rise_days"] or v[4] < E["rise_views"] or v[0] in seen:
+            if v[6] or a is None or a > E["rise_days"] or v[4] < E["rise_views"] or v[0] in seen or not_scene(v, wn[wi]):
                 continue
             seen.add(v[0])
             rise.append({"id": v[0], "t": v[1], "ch": v[2], "v": v[4], "age": round(a, 1), "w": wi})
