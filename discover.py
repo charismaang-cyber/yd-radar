@@ -30,6 +30,81 @@ GYEOL = [("조폭·양아치 코미디", r"(조폭|깡패|건달|갱스터).*코
          ("감동·인생", r"가족|어머니|아버지|실화|휴먼|드라마 영화|장애|노인|성장")]
 
 
+# 애니 후보 — 저작권 위험이 있어도 빼지 않는다(화면에 저작권 높음으로 표시). 성인물·단편·목록 문서만 뺀다.
+ANI_DOC_SKIP = re.compile(r"목록|등장인물|에피소드|주제가|의 음악|사운드트랙|OST")
+ANI_CAT_SKIP = re.compile(r"성인 애니메이션|포르노|에로|헨타이|단편 애니메이션|다큐멘터리")
+ANI_TREE_SKIP = re.compile(r"목록|등장인물|에피소드|음악|성우|제작사|제작자|단체|학교|잡지|토막글|포스터|캐릭터|감독")
+ANI_D = [("애니플렉스", r"애니플렉스|A-1|클로버웍스|CloverWorks"), ("투니버스", r"투니버스"), ("KBS", r"KBS"), ("MBC", r"MBC"), ("SBS", r"SBS"), ("EBS", r"EBS"),
+         ("넷플릭스", r"넷플릭스"), ("지브리", r"지브리"), ("픽사", r"픽사"), ("디즈니", r"디즈니"), ("드림웍스", r"드림웍스"), ("일루미네이션", r"일루미네이션"),
+         ("소니 애니", r"소니 픽처스 애니메이션"), ("토에이", r"도에이|토에이"), ("워너", r"워너 브라더스"), ("니켈로디언", r"니켈로디언")]
+ANI_GYEOL = [("애니 로맨스·일상", r"로맨스|연애|러브 코미디|순정|일상물"), ("애니 스포츠", r"스포츠|야구|농구|축구|배구|테니스|복싱|권투"),
+             ("애니 미스터리·다크", r"추리|미스터리|호러|공포|스릴러|심리"), ("애니 이세계·판타지", r"이세계|판타지"),
+             ("애니 액션·배틀", r"액션|전투|격투|닌자|메카|로봇"), ("애니 개그·추억", r"코미디|개그|시트콤|부조리")]
+
+
+def anime_gyeol(cats, y):
+    s = " ".join(cats)
+    if "애니메이션 영화" in s:
+        return "애니 영화(일본)" if re.search(r"일본|지브리|도호|도에이|쇼치쿠", s) else "애니 영화(일본 밖)"
+    for g, pat in ANI_GYEOL:
+        if re.search(pat, s):
+            return g
+    return "추억 만화(옛날)" if y and y < 2005 else "애니 기타"
+
+
+def _subcats(cat):
+    out, cont = [], {}
+    while True:
+        r = actors.api(action="query", list="categorymembers", cmtitle="분류:" + cat, cmlimit="max", cmtype="subcat", **cont)
+        out += [m["title"].split(":", 1)[-1] for m in r.get("query", {}).get("categorymembers", [])]
+        if "continue" not in r:
+            return out
+        cont = r["continue"]
+
+
+def _anime_make(t, cats):
+    """위키 문서 하나 → 후보. 틀·목록·성인물은 None"""
+    if re.match(r"(틀|위키백과|포털|사용자|모듈|도움말|파일|분류):", t) or ANI_DOC_SKIP.search(t) or any(ANI_CAT_SKIP.search(c) for c in cats):
+        return None
+    ys = [int(m.group(1)) for c in cats for m in [re.match(r"(\d{4})년 (?:컴퓨터 )?애니메이션", c)] if m] \
+        or [int(m.group(1)) for c in cats for m in [re.match(r"(\d{4})년 (?:시작한|만화)", c)] if m]
+    y, s, n = min(ys) if ys else 0, " ".join(cats), actors.short(t)
+    c = {"n": n, "y": y, "k": "애니", "g": anime_gyeol(cats, y), "d": next((d for d, p in ANI_D if re.search(p, s)), "")}
+    if n != t or plain_len(n) < 3:  # 흔한 제목은 '#제목 애니' 로 재서 '애니'도 보여야 인정
+        c.update(amb=True, cast=[])
+    return c
+
+
+def anime_step(st, cfg, log, today, minutes):
+    """애니 후보 모으기: 연도 분류(N년 애니메이션·애니메이션 영화·만화) + 방송 애니 분류 나무(둘째 단까지).
+       문서가 6천 편이 넘어 한 번에 받으면 오래 걸린다(집에서 36분) → 회차마다 minutes 분씩 이어 받아 다른 작품 재기를 안 막는다."""
+    d, now, t0 = st["disc"], int(time.time() // 60), time.time()
+    a = d.setdefault("ani", {"m": 0, "tree": [], "roots": [], "done": []})
+    if not a["tree"] and not a["roots"]:
+        if now - a["m"] < cfg["refresh_days"] * 1440:
+            return
+        a.update(m=now, done=[], tree=[[c, 0] for c in cfg.get("anime_trees") or []],
+                 roots=[f"{y}년 {x}" for y in range(cfg["anime_from_year"], today.year + 1) for x in ("만화", "컴퓨터 애니메이션 영화", "애니메이션 영화", "애니메이션")])
+    while (a["tree"] or a["roots"]) and time.time() - t0 < minutes * 60:
+        try:
+            if a["tree"]:
+                c, depth = a["tree"].pop()
+                if c not in a["done"]:
+                    a["done"].append(c)
+                    a["roots"].append(c)
+                    if depth < 2:
+                        a["tree"] += [[x, depth + 1] for x in _subcats(c) if not ANI_TREE_SKIP.search(x)]
+                continue
+            for t, cats in _members_with_cats(a["roots"].pop()).items():
+                if t not in d["cand"]:
+                    c = _anime_make(t, cats)
+                    if c:
+                        d["cand"][t] = c
+        except Exception as e:
+            log(f"작품 늘리기: 애니 분류 못 받음 {e}")
+    log(f"작품 늘리기: 애니 후보 {sum(c.get('k') == '애니' for c in d['cand'].values())}편 · 남은 분류 {len(a['tree']) + len(a['roots'])}개")
+
+
 def gyeol_of(cats):
     s = " ".join(cats)
     for g, pat in GYEOL:
@@ -175,7 +250,7 @@ def screen(st, cfg, have, minutes, log):
     d, now, t0, n = st["disc"], int(time.time() // 60), time.time(), 0
     soon = now - (cfg["rescreen_days"] - 7) * 1440  # 빈 화면·오류는 일시적일 때가 많아(명량·승부) 60일 말고 7일 뒤 다시
     todo = [k for k, c in d["cand"].items()
-            if (plain_len(c["n"]) >= 3 or c.get("cast")) and c["n"].replace(" ", "") not in have
+            if (plain_len(c["n"]) >= 3 or c.get("cast") or c.get("k") == "애니") and c["n"].replace(" ", "") not in have
             and now - d["seen"].get(k, [0])[0] >= cfg["rescreen_days"] * 1440]
     todo.sort(key=lambda k: (d["seen"].get(k, [0])[0], -d["cand"][k]["y"]))  # 처음 보는 것·최근 작품부터
     for k in todo:
@@ -183,15 +258,17 @@ def screen(st, cfg, have, minutes, log):
             break
         c = d["cand"][k]
         try:
-            if c.get("amb"):  # 흔한 제목: '제목 + 주연' 검색 첫 화면 (배우를 모르면 건너뜀)
-                if not c.get("cast"):
+            ani = c.get("k") == "애니"  # 애니는 #제목이 같은 영화·낱말과 섞이기 쉬워 전부 '제목 애니' 검색으로 본다
+            if c.get("amb") or ani:  # 흔한 제목: '제목 + 주연' 검색 첫 화면 (배우를 모르면 건너뜀)
+                who = "애니" if ani else (c.get("cast") or [""])[0]
+                if not who:
                     d["seen"][k] = [now, None, 0]
                     continue
                 r = yt.initial_data(yt.fetch("https://www.youtube.com/results?search_query="
-                                             + urllib.parse.quote(f"{c['n']} {c['cast'][0]}") + "&hl=ko&gl=KR")) or {}
+                                             + urllib.parse.quote(f"{c['n']} {who}") + "&hl=ko&gl=KR")) or {}
                 v, items = None, yt._lockups(r) + yt._videos(r)
                 blank = not items
-                if plain_len(c["n"]) < 3:  # 두 글자는 낱말이 흔하다: 결과 제목에 작품 이름이 있는 것만 (승부 이병헌 → 이병헌의 다른 영상 빼기)
+                if plain_len(c["n"]) < 3 or ani:  # 두 글자는 낱말이 흔하다: 결과 제목에 작품 이름이 있는 것만 (승부 이병헌 → 이병헌의 다른 영상 빼기)
                     want = c["n"].replace(" ", "").lower()
                     items = [x for x in items if want in (x.get("title") or "").replace(" ", "").lower()]
             else:
@@ -218,7 +295,8 @@ def fill_dist(st, keys, log, limit=100):
     got = actors.pages(need)
     for k in need:
         w = got.get(k, {}).get("w", "")
-        d["dist"][k] = actors.plain(actors.field(w, "배급", "배급사", "방송 채널", "채널"))[:40] or "?"
+        names = ("제작사", "스튜디오", "애니메이션 제작", "방송사", "방송국", "방송 채널", "채널", "배급", "배급사") if d["cand"][k].get("k") == "애니" else ("배급", "배급사", "방송 채널", "채널")
+        d["dist"][k] = actors.plain(actors.field(w, *names))[:40] or "?"
     log(f"작품 늘리기: 배급사 {len(need)}편 확인")
 
 
@@ -228,10 +306,14 @@ def works(st, cfg):
     ok = [(k, s[2]) for k, s in d.get("seen", {}).items() if s[2] >= cfg["min_top"] and k in d.get("cand", {})]
     ok.sort(key=lambda x: -x[1])
     out = []
+    plain = lambda n: re.sub(r"[^0-9a-z가-힣]", "", n.lower())
+    films = {plain(c["n"]) for c in d.get("cand", {}).values() if c.get("k") != "애니"}  # 같은 이름 한국 영화·드라마가 있는 애니
     for k, top in ok[:cfg["max_works"]]:
         c = d["cand"][k]
         tag = tag_of(c["n"])
-        q = "#" + tag + ("".join(" " + a for a in c.get("cast", [])[:2]) if c.get("amb") else "")  # 흔한 제목은 배우 이름도 보여야 인정
+        ani = c.get("k") == "애니"
+        who = ["애니"] if ani and (c.get("amb") or plain(c["n"]) in films) else c.get("cast", [])[:2] if c.get("amb") else []
+        q = "#" + tag + "".join(" " + a for a in who)  # 흔한 제목은 배우 이름(애니는 '애니')도 보여야 인정
         out.append({"key": k, "n": c["n"], "g": c["g"], "k": c["k"], "d": c["d"] or d.get("dist", {}).get(k, "?"),
-                    "y": str(c["y"]), "tag": tag, "q": q, "top0": top})
+                    "y": str(c["y"] or ""), "tag": tag, "q": q, "top0": top})
     return out

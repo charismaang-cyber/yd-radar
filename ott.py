@@ -73,7 +73,7 @@ def pick(nodes, names, year):
 def show_base(w):
     """드라마는 시즌마다 따로 등록되지 않는다: 오징어 게임 시즌 2 · 약한영웅 Class 1 · 모범택시 2 → 앞 이름으로 찾는다.
        영화는 속편이 다른 작품이라 하지 않는다."""
-    if w.get("k") not in ("OTT", "방송", "미드"):
+    if w.get("k") not in ("OTT", "방송", "미드", "애니"):
         return None
     s = SEASON.sub("", w["n"])
     if s == w["n"]:

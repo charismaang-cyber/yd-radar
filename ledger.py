@@ -51,7 +51,7 @@ def cast_of(wiki, fallback=()):
 
 def catalog_sources(st, today):
     """위키 제목 → {n,y,k,d}: 자동 발굴 후보 + 올해 영화(후보는 작년까지) + 방송 드라마(알아보기만, 화면엔 안 나옴)"""
-    src = dict((st.get("disc") or {}).get("cand") or {})
+    src = {t: c for t, c in ((st.get("disc") or {}).get("cand") or {}).items() if c.get("k") != "애니"}  # 애니 후보는 같은 이름 영화를 판모름으로 만든다 → 레이더에 오른 것만 아래 W: 로
     try:
         kor = [t for t, c in discover._members_with_cats(f"{today.year}년 영화", ["한국어 영화 작품", "대한민국의 영화 작품"]).items() if c]
         for t, cats in discover._cats(kor).items():
@@ -86,7 +86,7 @@ def ensure_catalog(L, st, works, deadline):
         nn = R.norm(w["n"])
         if nn and nn not in names:
             extra = [e for e in w["q"].lstrip("#").split() if R.norm(e) and R.norm(e) != nn]
-            cat["W:" + w["n"]] = {"n": w["n"], "y": int(w["y"]) if str(w["y"]).isdigit() else None, "k": w["k"], "d": w["d"], "cast": extra, "al": [], "try": 0 if not extra else 1}
+            cat["W:" + w["n"]] = {"n": w["n"], "y": int(w["y"]) if str(w["y"]).isdigit() else None, "k": w["k"], "d": w["d"], "cast": extra, "al": [], "try": 0 if not extra and w["k"] != "애니" else 1}
             names.add(nn)
     keys = list(todo)
     for i in range(0, len(keys), 50):

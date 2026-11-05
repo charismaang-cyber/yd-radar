@@ -311,6 +311,7 @@ td .w{font-weight:700}
       <div class="bar">
         <button class="chip" id="bc">방송사 작품도 보기</button>
         <button class="chip" id="noRisk">저작권 높음 빼기</button>
+        <button class="chip" id="noAni">애니 빼기</button>
         <span id="ottChips" style="display:contents"></span>
       </div>
       <div class="rule"><b>꿀통</b> = 남의 100만+ 2편↑ · 그중 6개월 넘게 살아 있음 · 최근 60일 50만+ 없음 &nbsp;/&nbsp; <b>심정지 재진입</b> = 100만+ 기록 있고 90일 넘게 아무도 안 올림 &nbsp;/&nbsp; <b>경쟁 중</b> = 최근 60일 50만+ 남의 쇼츠 있음(라필: 지금 올리는 사람 있으면 넘김) &nbsp;/&nbsp; <b>막 뜸</b> = 3일 안에 10만+ — 이 작품은 누가 잡는 중, 연관작이 트래픽을 받음</div>
@@ -409,10 +410,10 @@ const ott0 = w => w.ott===undefined ? OTT0.wait : w.ott===null ? OTT0.miss : w.o
 const ottTag = w => { const z = ott0(w); return z ? `<span class="tg ott0" title="${esc(z[1])}">${esc(z[0])}</span>` : w.ott.map(s => `<span class="tg ott" title="한국에서 구독으로 볼 수 있음 (저스트워치 기준)">${esc(s)}</span>`).join(" "); };
 const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"")+(w.auto==="disc"?' <span class="tg disc" title="위키백과 한국 영화·OTT 드라마 후보 중 #제목 쇼츠 화면에 50만+ 쇼츠가 있어 저절로 올라온 작품 (결은 위키백과 분류로 짐작)">자동 발굴</span>':"")+" "+ottTag(w);
 
-let D = null, W = {}, opt = {bc:false, noRisk:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
+let D = null, W = {}, opt = {bc:false, noRisk:false, noAni:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
-const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:opt.bc,noRisk:opt.noRisk,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP})); }catch(e){} };
-const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
+const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({bc:opt.bc,noRisk:opt.noRisk,noAni:opt.noAni,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP})); }catch(e){} };
+const vis = w => (opt.bc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.noAni || w.k!=="애니") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
 const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
 
 // ── 병행 운행: 검색 + 채널 장부를 합친 새 숫자 (ledger.py). 없거나 못 풀어도 옛 화면은 그대로 ──
@@ -494,9 +495,10 @@ function show(d){
   $("#app").classList.remove("hidden");
   $("#at").textContent = d.at.slice(5);
   $("#todayDate").textContent = d.at.slice(0,10);
-  $("#bc").classList.toggle("on", opt.bc); $("#noRisk").classList.toggle("on", opt.noRisk);
+  $("#bc").classList.toggle("on", opt.bc); $("#noRisk").classList.toggle("on", opt.noRisk); $("#noAni").classList.toggle("on", opt.noAni);
   $("#bc").onclick = () => { opt.bc = !opt.bc; saveOpt(); show(D); };
   $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
+  $("#noAni").onclick = () => { opt.noAni = !opt.noAni; saveOpt(); show(D); };
   $("#ottChips").innerHTML = `<span class="m" style="align-self:center;margin-left:8px;color:var(--ink3)" title="고르면 그 서비스에 있는 작품만 보여요 (저스트워치 한국 기준)">내 구독</span>` + OTTS.map(s => `<button class="chip ${(opt.myOtt||[]).includes(s)?"on":""}" data-ott="${esc(s)}">${esc(s)}</button>`).join("");
   document.querySelectorAll("[data-ott]").forEach(b => b.onclick = () => { const s = b.dataset.ott, a = opt.myOtt||[]; opt.myOtt = a.includes(s) ? a.filter(x => x!==s) : [...a, s]; saveOpt(); show(D); });
   $("#sq").oninput = drawSearch;
@@ -798,7 +800,7 @@ async function probeW(q){
 function addForm(w){
   const sel = (id, a) => `<select id="${id}">${a.map(x => `<option>${esc(x)}</option>`).join("")}</select>`;
   return `<div class="h5">＋ 영드레이더 목록에 넣기 <span class="m" style="font-weight:500;color:var(--ink3)">지금 잰 결과는 이번 한 번뿐 — 넣으면 30분마다 계속 재요</span></div>
-    <div class="addw"><label>결${sel("awG", D.gyeol.map(g => g.k))}</label><label>종류${sel("awK", ["영화","OTT","방송","외화","미드"])}</label>
+    <div class="addw"><label>결${sel("awG", D.gyeol.map(g => g.k))}</label><label>종류${sel("awK", ["영화","OTT","방송","외화","미드","애니"])}</label>
       <label>연도<input id="awY" placeholder="예: 2001"></label><label>배급<input id="awD" placeholder="예: 시네마서비스 (저작권 판단에 씀)"></label>
       <label style="grid-column:1/-1">검색어 (흔한 낱말 제목이면 배우 이름도 — 예: 친구 유오성 장동건)<input id="awQ" value="${esc(w.n)}"></label>
       <div class="row"><button class="btn" id="awGo">목록에 넣기</button><span class="m" id="awMsg"></span></div></div>`;

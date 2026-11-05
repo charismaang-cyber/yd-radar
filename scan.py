@@ -23,6 +23,7 @@ OFFICIAL = re.compile(r"(SBS|KBS|MBC|tvN|JTBC|TV\s?CHOSUN|TV조선|채널A|MBN|E
                       r"쿠팡|Coupang|KOCOWA|Viki|iQIYI|Studio Dragon|스튜디오드래곤|CJ ENM|U\+|Btv|Seezn|KBS WORLD|Kakao|카카오|Mnet|"
                       r"디글|Diggle|옛드|옛능|스브스|오분순삭|엠뚜루마뚜루|깔깔티비|플레이무비|PLAYMOVIE|콘텐츠판다|Contents Panda|"
                       r"롯데엔터|Lotte Entertainment|쇼박스|SHOWBOX|NEW 공식|Plus M|플러스엠|메가박스|"
+                      r"애니플러스|ANIPLUS|애니맥스|ANIMAX|애니박스|ANIBOX|라프텔|Laftel|뮤즈코리아|Muse Asia|Muse Korea|투니버스|Tooniverse|애니플렉스|Aniplex|TOHO animation|Toei Animation|토에이 애니메이션|Crunchyroll|Studio Ghibli|스튜디오 지브리|Pixar|DreamWorks|Illumination|"
                       r"NBC|Universal|Warner|HBO|Paramount|Sony Pictures|Lionsgate|20th Century|Peacock|Prime Video|AMC|BBC|ABC|CBS|FOX|USA Network)", re.I)
 # 수요 숫자에서 뺄 영상 — 작품 장면이 아닌 것. OFFICIAL 과 달리 잴 때(v[6])가 아니라 판정할 때 보므로 옛 기록에도 바로 적용된다.
 # 11-05 썸네일로 분류한 표본 200개로 시험: 목록의 비장면 24% → 약 10%. 다른 작품이 섞인 영상·이름만 같은 영상은 못 잡는다.
@@ -30,7 +31,11 @@ OFFICIAL = re.compile(r"(SBS|KBS|MBC|tvN|JTBC|TV\s?CHOSUN|TV조선|채널A|MBN|E
 KIN_CH = re.compile(r"에나 ?클립|바이포엠|BY4M|메리크리스마스|마인드마크|EBS|열린공감", re.I)  # 배급사 관계 채널
 EVENT_T = re.compile(r"인터뷰|시사회|무대인사|제작발표|오픈토크|레드카펫|실물|직캠|쇼케이스|\bGV\b|뒤풀이|수상소감|시상식|청룡영화|부산국제영화제|BIFF|예고편|티저|최신 ?근황|배우 근황", re.I)
 EVENT_CH = re.compile(r"뉴스|news|ytn|star\b|스타|연예|셀럽|아이닷컴|top ?daily|톱데일리|k-culture|일상|비하인드 아카이빙|mtn", re.I)
-FILM_CH = re.compile(r"무비|영화|씬|시네|드라마|컷|movie|cine|film", re.I)  # 이름에 영화 낱말이 있으면 장면 채널 (무비맛스타·스타한컷)
+FILM_CH = re.compile(r"무비|영화|씬|시네|드라마|컷|movie|cine|film|애니|만화|anime|toon", re.I)  # 이름에 영화 낱말이 있으면 장면 채널 (무비맛스타·스타한컷)
+
+
+# 애니만: 포켓몬·디즈니·케데헌 숫자에 코스프레·카드·만들기·노래가 많이 섞인다(10-13 조사)
+ANI_T = re.compile(r"코스프레|코스어|cosplay|피규어|굿즈|언박싱|개봉기|팩 ?개봉|카드 ?(?:개봉|깡|팩)|레고|뜨개|그리기|만들기|클레이|가챠|성우|커버|cover|챌린지|challenge|댄스|안무|\bOST\b|주제가|오프닝|엔딩곡|노래방|공략|콘서트|팬미팅|실사|현실판|뮤지컬|라이브|겟레디|성지순례|렌즈|스티커|종이구관|페이퍼|paper|diy|메이크업|sing-along", re.I)
 
 
 def not_scene(v, w):
@@ -41,6 +46,8 @@ def not_scene(v, w):
     for nm in {w["n"], w.get("tag") or "", re.split(r"[:：]", w["n"])[0]}:  # 작품 이름 속 낱말은 빼고 본다: 굿뉴스 ≠ 뉴스
         if nm:
             t = re.sub(re.escape(nm), " ", t, flags=re.I)
+    if w.get("k") == "애니" and ANI_T.search(t):
+        return True
     return bool(EVENT_T.search(t))
 
 
@@ -139,6 +146,11 @@ def matcher(w):
 def risk_of(w, chans):
     if w["k"] == "방송":
         return "방송", "방송사 화면 — 우리 규칙상 제작 X"
+    if w["k"] == "애니":  # 라필 책은 영화 배급사만 다룬다. 위험해도 빼지 않고 표시만 한다(쓸 수도 있음 — 11-05 사용자)
+        for x, why in CFG["risk_anime"].items():
+            if x.lower() in w["d"].lower():
+                return "높음", why
+        return "중간", "애니 원본은 무단 사용 — 2026 단속 늘어남 · " + ("권리사 확인 필요" if w["d"] == "?" else "권리: " + w["d"])
     hit = [c for c in chans if any(x.lower() in c.lower() for x in CFG["risk_channels"])]
     if hit:
         return "높음", f"{hit[0]} 채널에 이 작품 영상이 있음 (라필 책 18쪽 더블 체크)"
@@ -310,7 +322,7 @@ def entry(j, timing):
     popped = bool(j.get("hot")) or bool(hows) or cp.get("m30", 0) >= R["big"]
     if j["st"] == "쇼츠 거의 없음":
         v, why = "피함", "쇼츠 5개 미만 — 배급사가 지운 것일 수 있음"
-    elif j.get("risk") in ("높음", "방송"):
+    elif j.get("risk") in ("높음", "방송") and j.get("k") != "애니":  # 애니는 저작권 높음 표시만 하고 경쟁으로 판정(점수에서 15 깎임)
         v, why = "피함", ("방송사 작품 — 우리 규칙 X" if j["risk"] == "방송" else "저작권 높음 — " + j.get("riskwhy", ""))
     elif comp >= E["avoid_comp"]:
         v, why = "피함", f"붐빔 · {c30}" + (" · 지난주 급증" if cp.get("surge") else "")
@@ -621,16 +633,19 @@ def main():
             d.setdefault(k, {})
         try:
             if now - d.get("m", 0) >= DC["refresh_days"] * 1440 or d.get("ver") != discover.VER:
-                d["cand"], d["m"] = discover.candidates(DC, log, kst(now).date()), now
+                d["cand"], d["m"] = {**{k: c for k, c in d["cand"].items() if c.get("k") == "애니"}, **discover.candidates(DC, log, kst(now).date())}, now
                 if d.get("ver") != discover.VER:  # 찾는 법이 바뀌었으니 전에 아무것도 못 본 작품은 바로 다시
                     d["seen"] = {k: s for k, s in d["seen"].items() if s[1] is not None or s[2]}
                     d["ver"] = discover.VER
-            discover.screen(st, DC, {w["tag"] for w in base}, DC["screen_minutes"], log)
+            if DC.get("anime_from_year"):
+                discover.anime_step(st, DC, log, kst(now).date(), DC.get("anime_minutes", 6))
+            # 직접 넣은 애니의 다른 이름(심슨 가족·포켓몬스터·신세기 에반게리온)이 자동 발굴에서 또 올라오지 않게
+            discover.screen(st, DC, {w["tag"] for w in base} | {re.sub(r"\s", "", a) for w in base if w["k"] == "애니" for a in w["names"]}, DC["screen_minutes"], log)
             discover.fill_dist(st, [x["key"] for x in discover.works(st, DC)], log)
         except Exception as e:
             st["err"].append(f"{today} 작품 늘리기: {type(e).__name__} {e}"[:200])
             log(f"작품 늘리기 못 함: {e}")
-        have = {w["i"] for w in base}
+        have = {w["i"] for w in base} | {norm(a) for w in base if w["k"] == "애니" for a in w["names"]}
         for x in discover.works(st, DC):
             i = norm(x["n"])
             if not i or i in have:
