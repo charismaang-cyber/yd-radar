@@ -749,7 +749,8 @@ function openW(i){
       <a href="https://ko.wikipedia.org/w/index.php?search=${nm}" target="_blank" rel="noopener">위키백과</a><a href="https://namu.wiki/w/${nm}" target="_blank" rel="noopener">나무위키</a>
       <a href="https://search.naver.com/search.naver?query=${nm}" target="_blank" rel="noopener">네이버</a><a href="https://trends.google.co.kr/trends/explore?geo=KR&amp;q=${nm}" target="_blank" rel="noopener">구글 트렌드</a></div>
     ${w.hot&&w.hot.length?`<div class="h5">🔥 최근 3일 뜬 것</div><div class="vg">${w.hot.map(vcell).join("")}</div>`:""}
-    <div class="h5">남이 터뜨린 쇼츠 (조회수 순)</div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
+    ${(w.recent||[]).length?`<div class="h5">최근 30일 올라온 쇼츠 <span class="m" style="font-weight:500;color:var(--ink3)">${(c.n??0)>w.recent.length?`찾은 ${c.n}편 중 `:""}조회수 상위 ${w.recent.length}편</span></div><div class="vg">${w.recent.map(vcell).join("")}</div>`:""}
+    <div class="h5">남이 터뜨린 쇼츠 <span class="m" style="font-weight:500;color:var(--ink3)">전체 기간 조회수 상위 8편</span></div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
     ${w.rel&&w.rel.length?`<div class="h5">🍯 이어서 볼 연관작</div><div class="rels">${w.rel.map(relCard).join("")}</div>`:""}`;
   $("#modal").classList.remove("hidden");
   $("#mx").onclick = closeM; bind(); mkBind(w); if(w.probe) addBind(w);

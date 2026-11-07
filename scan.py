@@ -336,6 +336,8 @@ def judge(w, rec, now):
             "r60m": sum(v[4] >= R["big"] for v in r60), "cp": compete(vs),
             "top": pv(top) if top else None, "ans": {"cid": ans[0][0][0], "ch": ans[0][0][1], "n": ans[0][1]} if ans else None,
             "hot": [pv(v) for v in hot[:4]], "vids": [pv(v) for v in vs[:8]], "ht": rec["ht"],
+            # 작품 창 «최근 30일 올라온 쇼츠» — vids 는 전체 기간 상위 8편이라 오래된 100만+ 에 가려 요즘 올린 쇼츠가 안 보인다 (11-08 엉클 8위 123만 ↔ 레몬쇼츠 55만)
+            "recent": [pv(v) for v in sorted((v for v in vs if v[7] is not None and v[7] <= E["comp_days"]), key=lambda v: -v[4])[:8]],
             "beginner": hv is not None and hv < R["hashtag_beginner"], "off": rec.get("off", [])}
 
 
