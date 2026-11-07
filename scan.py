@@ -758,7 +758,7 @@ def main():
             log("오늘 API 검색 몫(6,000유닛)을 다 씀 → 다음 회차에")
             break
         if st["units"].get(qday, 0) >= RUN["unit_budget"]:
-            log(f"오늘 유튜브 키 몫({RUN['unit_budget']:,}유닛)을 다 씀 → 내일 이어서 (오늘의 흐름·채널 레이더 몫 남겨 둠)")
+            log(f"오늘 유튜브 키 몫({RUN['unit_budget']:,}유닛)을 다 씀 → 내일 이어서 (오늘의 흐름은 11-07부터 다른 프로젝트 키를 씀)")
             break
         try:
             rec = scan_work(w, key, mode, log, st["works"].get(w["i"]))

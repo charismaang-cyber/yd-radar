@@ -15,7 +15,7 @@
     "loop_minutes": 330,
     "per_round": 150,
     "rescan_hours": 24, "rescan_low_hours": 168,
-    "unit_budget": 5000,
+    "unit_budget": 7500,
     "watch_max": 300,
     "sleep_sec": 1.2
   },
@@ -87,6 +87,6 @@
                     "강철중": ["공공의 적 1-1: 강철중"], "가문의 위기": ["가문의 영광 2: 가문의 위기"], "가문의 부활": ["가문의 영광 3: 가문의 부활"],
                     "가문의 수난": ["가문의 영광 4: 가문의 수난"], "가문의 귀환": ["가문의 영광 5: 가문의 귀환"]},
           "_설명": "저스트워치 한국에서 구독 시청처 조회: 회차마다 minutes 분, refresh_days 뒤 다시. alias = 작품 이름과 저스트워치 제목이 다른 것"},
-  "ledger": {"unit_day": 2000, "all_cap": 7000, "rss_threads": 4, "filter_per_round": 30, "tab_per_round": 40, "cat_refresh_days": 30, "_설명": "병행 운행(ledger.py): 옛 숫자와 따로 검색+채널 장부 합친 새 숫자. unit_day = 장부 몫, all_cap = 옛 방식까지 합쳐 이만큼 쓰면 멈춤"},
+  "ledger": {"unit_day": 2000, "all_cap": 9500, "rss_threads": 4, "filter_per_round": 30, "tab_per_round": 40, "cat_refresh_days": 30, "_설명": "병행 운행(ledger.py): 옛 숫자와 따로 검색+채널 장부 합친 새 숫자. unit_day = 장부 몫, all_cap = 옛 방식까지 합쳐 이만큼 쓰면 멈춤"},
   "issues_url": "https://charismaang-cyber.github.io/daily-flow/data.json"
 }

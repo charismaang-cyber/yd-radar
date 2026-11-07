@@ -17,7 +17,7 @@ if sys.stdout:
 HERE = os.path.dirname(os.path.abspath(__file__))
 C = scan.CFG.get("ledger") or {}
 UNIT_DAY = C.get("unit_day", 2000)  # 장부 몫 (옛 방식과 따로 셈)
-ALL_CAP = C.get("all_cap", 7000)  # 옛 방식까지 합쳐 이만큼 쓰면 멈춤 (오늘의 흐름·채널 레이더 몫)
+ALL_CAP = C.get("all_cap", 7000)  # 옛 방식까지 합쳐 이만큼 쓰면 멈춤 (PC 도구 몫 남김)
 THREADS = C.get("rss_threads", 4)
 FILTER_PER_ROUND, TAB_PER_ROUND = C.get("filter_per_round", 30), C.get("tab_per_round", 40)
 CAT_DAYS = C.get("cat_refresh_days", 30)
