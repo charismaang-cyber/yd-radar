@@ -14,6 +14,9 @@ if sys.stdout:
     sys.stdout.reconfigure(encoding="utf-8")
 HERE = os.path.dirname(os.path.abspath(__file__))
 FEED, SEEN = {}, set()  # 병행 운행(ledger.py)에 넘길 것: 이번 회차에 API 로 받은 영상 · 검색에 보인 영상. 옛 숫자엔 안 쓴다
+# 장부(ledger.py)가 찾은 최근 60일 영상 — 작품 id → 영상 줄. 검색은 한 번에 50~70개뿐이라 경쟁이 적게 잡혀서(11-07 브로큰 또바바 2편 ↔ 실제 5편) 합쳐 판정한다.
+# main 에서 merge.enc.json 을 읽어 채운다. 장부(ledger.py)가 scan.judge 를 부를 땐 비어 있어 장부만 본 값이 나온다.
+MERGE = {}
 KST = timezone(timedelta(hours=9))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
 R, RUN, E = CFG["rule"], CFG["run"], CFG["entry"]
@@ -194,9 +197,16 @@ def scan_work(w, key, mode, log, prev=None):
     else:
         src = yt.api_search(w["q"].lstrip("#"), key, "viewCount") + yt.api_search(w["q"].lstrip("#"), key, "date")
     ht = [None, None]
-    if mode == "scrape" and w["ht_ok"]:
+    if mode == "scrape":  # 검색어에 배우 이름을 덧붙인 작품도 #화면은 본다 (#브로큰 화면엔 또바바 5편이 다 있었다). 영상은 matcher 가 거르고, 흔한 낱말의 개수만 안 믿는다
         time.sleep(RUN["sleep_sec"])
-        *ht, more = yt.hashtag_page(w["tag"])
+        try:
+            a_, b_, more = yt.hashtag_page(w["tag"])
+        except yt.Blocked:
+            raise
+        except Exception:
+            a_, b_, more = None, None, []
+        if w["ht_ok"]:
+            ht = [a_, b_]
         src += more
     seen_v = {}
     for x in src:
@@ -251,6 +261,9 @@ def judge(w, rec, now):
     if not rec:
         return {"st": "아직"}
     third = [v for v in rec["v"] if not v[6]]
+    if MERGE.get(w["i"]):
+        have = {v[0] for v in rec["v"]}  # 공식 채널로 뺀 영상이 장부로 되살아나지 않게 v[6] 인 것까지 본다
+        third = sorted(third + [v for v in MERGE[w["i"]] if v[0] not in have], key=lambda v: -v[4])
     vs = [v[:7] + [age_days(v[5], now)] for v in third if not not_scene(v, w)]  # 제3자의 장면만, 끝에 며칠 전인지
     big = [v for v in vs if v[4] >= R["big"]]
     alive = [v for v in big if v[7] is not None and v[7] >= R["alive_days"]]
@@ -330,7 +343,7 @@ def entry(j, timing):
     comp = cp.get("s", 0)
     pen = {"높음": 15, "방송": 15, "중간": 5}.get(j.get("risk"), 0)
     s = round(0.4 * dem + 0.2 * tmp + 0.4 * (100 - comp) - pen, 1)
-    c30 = f"최근 30일 다른 채널 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편"
+    c30 = f"최근 30일 찾은 경쟁 최소 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편"
     demand = j.get("n100", 0) >= 1 or j.get("n50", 0) >= 2
     popped = bool(j.get("hot")) or bool(hows) or cp.get("m30", 0) >= R["big"]
     if j["st"] == "쇼츠 거의 없음":
@@ -344,7 +357,7 @@ def entry(j, timing):
     elif cp.get("ch", 0) <= E["blue_max_ch"] and cp.get("n", 0) <= E["blue_max_posts"]:
         v, why = "GO", f"블루오션 · {c30} · 남의 최고 {fmt_v(top)}"
     elif popped and comp < E["go_max_comp"]:
-        v, why = "GO", "막 튐 · " + " · ".join((hows or [f"30일 최고 {fmt_v(cp.get('m30', 0))}"])[:2]) + f" · 경쟁 {cp.get('ch', 0)}곳 {cp.get('n', 0)}편"
+        v, why = "GO", "막 튐 · " + " · ".join((hows or [f"30일 최고 {fmt_v(cp.get('m30', 0))}"])[:2]) + f" · 경쟁 최소 {cp.get('ch', 0)}곳 {cp.get('n', 0)}편"
     else:
         v, why = "차선", f"{c30} · 경쟁강도 {comp}"
     return {"v": v, "s": s, "dem": round(dem), "tmp": round(tmp), "cmp": comp, "why": why, "how": hows}
@@ -629,6 +642,13 @@ def main():
             log("지난 기록을 못 풂(비밀번호가 바뀜?) → 새로 시작")
     for k in ("works", "rss", "watch", "units"):
         st.setdefault(k, {})
+    mp = os.path.join(a.out, "merge.enc.json")
+    if os.path.exists(mp):
+        try:
+            MERGE.update(lock.open_(json.load(open(mp, encoding="utf-8")), pw))
+            log(f"장부 합치기: 작품 {len(MERGE)}편 · 영상 {sum(map(len, MERGE.values()))}편")
+        except Exception as e:
+            log(f"장부 합치기 못 풂 → 검색 숫자만 ({e})")
     st.setdefault("err", [])
     now, today = now_min(), kst(now_min()).date().isoformat()
     AC = CFG.get("actors")

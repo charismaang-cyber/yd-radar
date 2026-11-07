@@ -2,8 +2,8 @@
 """채널 장부 — 옛 숫자와 나란히 돌리는 새 방식(병행 운행).
    옛 방식은 작품마다 검색해서 찾는다. 시험해 보니(11-05) 검색과 장부는 서로 다른 영상을 찾아서, 둘을 합쳐야 한다:
      · 영화 채널 RSS(쿼터 없음) · 채널 Shorts 탭 첫 등록 · 이번 달 필터 검색 · 옛 방식이 찾은 영상을 새 규칙으로 다시 판정
-   옛 자료(state.enc.json·data.enc.js)는 읽기만 하고 절대 안 고친다. 결과는 따로: ledger.enc.json(장부) · new.enc.js(화면용).
-   이 파일이 실패해도 옛 숫자는 그대로다 (scan.yml 에서 따로 돈다).
+   옛 자료(state.enc.json·data.enc.js)는 읽기만 하고 절대 안 고친다. 결과는 따로: ledger.enc.json(장부) · new.enc.js(화면용) · merge.enc.json(scan.py 가 다음 회차 판정에 합치는 최근 60일 영상).
+   이 파일이 실패해도 판정은 지난 merge.enc.json 으로 돈다 (scan.yml 에서 따로 돈다).
    사용: python ledger.py --out site [--minutes 8]"""
 import os, re, sys, json, time, argparse, urllib.parse, urllib.error
 from collections import Counter, defaultdict
@@ -159,6 +159,15 @@ def person(x):
     wk = x.get("wk") or {}
     a = sum(wk.values())
     return a == 0 or len(wk) >= 0.6 * a
+
+
+def counted(r, x):
+    """경쟁·수요 숫자에 넣을 줄인가 — 평소 영화 클립을 올리는 채널의 영상만.
+       11-07 표본 100개를 제목으로 먼저 분류: 영화 채널 40개 중 장면 32 ↔ 영상 4편 미만 채널 32개 중 0, 영화 채널 아닌 곳 28개 중 8.
+       흔한 이름(친구·클래식·스타트업)이 부풀던 건 대부분 작은 채널·영화 아닌 채널에서 들어왔다."""
+    if not x or x.get("n", 0) < 4 or not film(x):
+        return False
+    return bool(r[FLAG] & 2) or x.get("s", 0) >= 0.3 * x["n"]
 
 
 def add_channel(L, cid, title, now):
@@ -555,11 +564,11 @@ def cards(L, st, data, works, wk):
     by = defaultdict(list)
     for i, r in L["v"].items():
         x = ch.get(r[CID])
-        if (r[FLAG] & 2) or film(x):
+        if counted(r, x) or (((r[FLAG] & 1) or person(x)) and ((r[FLAG] & 2) or film(x))):  # 뒤쪽은 «작품 클립이 아니라서 뺌» 안내에만 쓴다
             by[r[K]].append((i, r))
     name = lambda c: L["nm"].get(c, "") or (ch.get(c) or {}).get("t", "")
     isnc = lambda r: bool(r[FLAG] & 1) or person(ch.get(r[CID]))
-    out, totals = {}, Counter()
+    out, totals, merge = {}, Counter(), {}
     names = defaultdict(list)
     for k, c in L["cat"].items():
         names[R.norm(c["n"])].append(k)
@@ -592,10 +601,18 @@ def cards(L, st, data, works, wk):
         pan_in = bool(pan) and len(by.get(k, [])) >= 5 * others
         if pan_in:
             rows += [[i, r[TITLE], name(r[CID]), r[CID], r[VIEWS], r[PUB], 0] for i, r in pan]
+        # scan.py 판정에 합칠 줄: 시리즈는 묶지 않고 이 작품 것만, 최근 60일만 (옛 영상은 장부도 듬성해서 수요 숫자는 검색 쪽을 그대로 둔다)
+        near = []
+        for i, r in by.get(k, []) + (pan if pan_in else []):
+            a = age_days(r[PUB], now)
+            if a is not None and a <= 60 and not isnc(r) and not OFF.search(name(r[CID])):
+                near.append([i, r[TITLE], name(r[CID]), r[CID], r[VIEWS], r[PUB], 0])
+        if near:
+            merge[w["i"]] = near
         rows.sort(key=lambda v: -v[4])
         rec = {"v": rows, "ht": w.get("ht") or [None, None], "off": w.get("off") or [], "at": now}
         j = scan.judge(w, rec, now)
-        j.update(i=w["i"], n=w["n"], risk=w.get("risk"), riskwhy=w.get("riskwhy", ""))
+        j.update(i=w["i"], n=w["n"], k=w.get("k"), risk=w.get("risk"), riskwhy=w.get("riskwhy", ""))  # k 없으면 방송·애니가 저작권으로 전부 피함이 된다
         how = [h for h in (w.get("en") or {}).get("how", []) if not h.endswith("뜸")]
         e = scan.entry(j, {w["i"]: (10 if how else 0, how)})
         c = j.get("cp") or {}
@@ -618,7 +635,7 @@ def cards(L, st, data, works, wk):
     stat = {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "ch": len(ch), "film": sum(1 for x in ch.values() if x.get("n", 0) >= 4 and film(x) and not person(x)), "person": sum(1 for x in ch.values() if person(x)), "read": active,
             "vids": len(L["v"]), "cat": len(L["cat"]), "cat_todo": len(L["cat_todo"]), "units": L["units"].get(today, 0), "old_left": L.get("old_left", 0),
             "tab_left": L.get("tab_left", 0), "block": L.get("block", 0), "tot": dict(totals), "since": L.get("since")}
-    return {"stat": stat, "w": out}
+    return {"stat": stat, "w": out, "merge": merge}
 
 
 # ── 한 번 돌기 ──────────────────────────────────────────
@@ -696,6 +713,7 @@ def main():
         os.remove(inp_p)
     if ready:
         out = cards(L, st, data, works, wk)
+        write(os.path.join(a.out, "merge.enc.json"), json.dumps(lock.seal(out.pop("merge"), pw)))
         write(os.path.join(a.out, "new.enc.js"), "window.YD_NEW = " + json.dumps(lock.seal(out, pw)) + ";\n")
         diff = sum(1 for w in works if w["i"] in out["w"] and (w.get("en") or {}).get("v") != out["w"][w["i"]]["v"])
         log(f"끝: 채널 {out['stat']['ch']}곳 · 영상 {out['stat']['vids']}편 · 오늘 {out['stat']['units']}유닛 · 판정 다른 작품 {diff}/{len(out['w'])}편 · {time.time() - t0:.0f}초")
