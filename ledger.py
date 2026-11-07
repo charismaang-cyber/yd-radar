@@ -714,6 +714,8 @@ def main():
     if ready:
         out = cards(L, st, data, works, wk)
         write(os.path.join(a.out, "merge.enc.json"), json.dumps(lock.seal(out.pop("merge"), pw)))
+        # scan.py 가 100만+ 를 수요로 셀 때 쓰는 채널 목록 (장부가 4편↑ 보고 영화 채널로 판단한 곳)
+        write(os.path.join(a.out, "film_ch.enc.json"), json.dumps(lock.seal([c for c, x in L["ch"].items() if x.get("n", 0) >= 4 and film(x)], pw)))
         write(os.path.join(a.out, "new.enc.js"), "window.YD_NEW = " + json.dumps(lock.seal(out, pw)) + ";\n")
         diff = sum(1 for w in works if w["i"] in out["w"] and (w.get("en") or {}).get("v") != out["w"][w["i"]]["v"])
         log(f"끝: 채널 {out['stat']['ch']}곳 · 영상 {out['stat']['vids']}편 · 오늘 {out['stat']['units']}유닛 · 판정 다른 작품 {diff}/{len(out['w'])}편 · {time.time() - t0:.0f}초")

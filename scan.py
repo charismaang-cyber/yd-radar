@@ -17,6 +17,10 @@ FEED, SEEN = {}, set()  # 병행 운행(ledger.py)에 넘길 것: 이번 회차�
 # 장부(ledger.py)가 찾은 최근 60일 영상 — 작품 id → 영상 줄. 검색은 한 번에 50~70개뿐이라 경쟁이 적게 잡혀서(11-07 브로큰 또바바 2편 ↔ 실제 5편) 합쳐 판정한다.
 # main 에서 merge.enc.json 을 읽어 채운다. 장부(ledger.py)가 scan.judge 를 부를 땐 비어 있어 장부만 본 값이 나온다.
 MERGE = {}
+# 평소 영화 클립을 올리는 채널 id (ledger.py 가 film_ch.enc.json 으로 넘김). 100만+ 는 이 채널 영상만 수요로 센다 (인물·행사·공식 영상 거르기).
+# 비어 있으면(첫 회차·장부 실패·ledger.py 안에서 부를 때) 채널로 거르지 않는다.
+# 11-07 채점 30편: 판정 일치 21 → 24편. 틀린 100만+ 33개 중 16개가 빠지고, 맞는 99개 중 9개도 같이 빠진다(장부가 아직 4편 미만 본 채널). 영화 채널이 올린 행사 영상은 못 거른다.
+CLIP_CH = set()
 KST = timezone(timedelta(hours=9))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
 R, RUN, E = CFG["rule"], CFG["run"], CFG["entry"]
@@ -291,7 +295,8 @@ def judge(w, rec, now):
         have = {v[0] for v in rec["v"]}  # 공식 채널로 뺀 영상이 장부로 되살아나지 않게 v[6] 인 것까지 본다
         third = sorted(third + [v for v in MERGE[w["i"]] if v[0] not in have], key=lambda v: -v[4])
     vs = [v[:7] + [age_days(v[5], now)] for v in third if not not_scene(v, w)]  # 제3자의 장면만, 끝에 며칠 전인지
-    big = [v for v in vs if v[4] >= R["big"]]
+    is_clip = lambda v: not CLIP_CH or v[3] in CLIP_CH
+    big = [v for v in vs if v[4] >= R["big"] and is_clip(v)]
     alive = [v for v in big if v[7] is not None and v[7] >= R["alive_days"]]
     r60 = [v for v in vs if v[7] is not None and v[7] <= R["recent_days"]]
     r60big = [v for v in r60 if v[4] >= R["mid"]]
@@ -299,8 +304,8 @@ def judge(w, rec, now):
     ages = [v[7] for v in vs if v[7] is not None]
     gap = round(min(ages)) if ages else None
     ans = Counter((v[3], v[2]) for v in big).most_common(1)
-    top = vs[0] if vs else None
-    n100, n50 = len(big), sum(v[4] >= R["mid"] for v in vs)
+    top = next((v for v in vs if v[4] < R["big"] or is_clip(v)), None)
+    n100, n50 = len(big), sum(v[4] >= R["mid"] and (v[4] < R["big"] or is_clip(v)) for v in vs)
     if len(vs) < R["few_shorts"]:
         st = "쇼츠 거의 없음"
     elif n100 == 0 and n50 < 2:
@@ -324,7 +329,7 @@ def judge(w, rec, now):
     hv = rec["ht"][0]
     if hv is not None: why.append(f"#{w['tag']} 동영상 {hv:,}개")
     cut = sum(v[4] >= R["big"] for v in third) - n100
-    if cut: why.append(f"공식·행사·관계사 영상 100만+ {cut}편은 수요에서 뺌")
+    if cut: why.append(f"공식·행사·관계사·영화 채널 아닌 곳의 100만+ {cut}편은 수요에서 뺌")
     pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
     return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
             "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
@@ -675,6 +680,15 @@ def main():
             log(f"장부 합치기: 작품 {len(MERGE)}편 · 영상 {sum(map(len, MERGE.values()))}편")
         except Exception as e:
             log(f"장부 합치기 못 풂 → 검색 숫자만 ({e})")
+    fp = os.path.join(a.out, "film_ch.enc.json")
+    if os.path.exists(fp):
+        try:
+            clip = lock.open_(json.load(open(fp, encoding="utf-8")), pw)
+            if len(clip) >= 1000:  # 장부가 새로 시작해 채널이 적으면 멀쩡한 수요까지 다 빠지니 안 쓴다
+                CLIP_CH.update(clip)
+            log(f"수요 채널 기준: 영화 채널 {len(clip)}곳" + ("" if CLIP_CH else " → 너무 적어서 안 씀"))
+        except Exception as e:
+            log(f"수요 채널 기준 못 풂 → 안 거름 ({e})")
     st.setdefault("err", [])
     now, today = now_min(), kst(now_min()).date().isoformat()
     AC = CFG.get("actors")
