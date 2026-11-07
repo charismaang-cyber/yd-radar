@@ -1,0 +1,940 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>영드레이더</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+:root{--honey:#2f9e6a;--revive:#e0803a;--hot:#d6404a;--cand:#c9a227;--busy:#8b5a7a;--weak:#9a95ad}
+.lock{position:fixed;inset:0;display:grid;place-items:center;padding:16px;z-index:50}
+.lock .card{width:min(380px,100%);padding:30px 26px;text-align:center}
+.lock h1{margin:10px 0 4px;font-size:24px;font-weight:800}
+.lock p{margin:0 0 18px;color:var(--ink3);font-size:12.5px}
+.lock input{width:100%;font:inherit;font-size:15px;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card-solid);color:var(--ink)}
+.lock .btn{width:100%;justify-content:center;margin:12px 0 0}
+.lock .msg{min-height:18px;margin-top:10px;font-size:12.5px;color:var(--up)}
+.hidden{display:none!important}
+.tgs{display:flex;flex-wrap:wrap;gap:4px}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--card-solid);color:var(--ink2);font:inherit;font-size:12px;padding:5px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--card-solid);border-color:var(--ink);font-weight:700}
+.search{font:inherit;font-size:12.5px;color:var(--ink);background:var(--card-solid);border:1px solid var(--line);border-radius:12px;padding:7px 11px;min-width:0;flex:1 1 150px}
+.rule{font-size:12px;color:var(--ink3);margin:10px 0 0;line-height:1.6}
+.rule b{color:var(--ink2)}
+
+.tg{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;color:#fff;white-space:nowrap;vertical-align:1px}
+.s-honey{background:var(--honey)}.s-revive{background:var(--revive)}.s-hot{background:var(--hot)}.s-cand{background:var(--cand)}
+.s-busy{background:var(--busy)}.s-weak,.s-few{background:var(--weak)}.s-none{background:transparent;color:var(--ink3);border:1px dashed var(--line)}
+.r{background:transparent;border:1px solid currentColor}
+.r-낮음{color:var(--honey)}.r-중간{color:var(--revive)}.r-높음{color:var(--hot)}.r-방송{color:#8b6fd6}.r-\?{color:var(--ink3)}
+.tg.act{background:#8b6fd6}.tg.disc{background:#4f8a8b}.tg.ott{background:transparent;color:var(--ink2);border:1px solid var(--line)}.tg.ott0{background:transparent;color:var(--ink3);border:1px dashed var(--line);font-weight:500}
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:14px;padding-top:14px}
+.ac{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px}
+.ac.now{border-color:var(--hot)}
+.ac .ah{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ac .dd{font-family:"Cormorant Garamond",serif;font-size:24px;font-weight:600;color:var(--accent);line-height:1}
+.ac.now .dd{color:var(--hot)}
+.ac .n{font-weight:800;font-size:15px}
+.ac .m{font-size:11.5px;color:var(--ink3)}
+.ac .ph{font-size:11.5px;font-weight:700;color:var(--hot)}
+.al{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;padding:8px 0 0;margin-top:8px;border-top:1px solid var(--line)}
+.al .an{font-weight:700;font-size:13px;padding-top:3px;overflow-wrap:anywhere}
+.al .aw{display:flex;flex-wrap:wrap;gap:6px}
+.aw1{border:1px solid var(--line);background:transparent;border-radius:10px;padding:4px 8px;font:inherit;font-size:12.5px;color:inherit;cursor:pointer;text-align:left;display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap}
+.aw1:hover{border-color:var(--accent)}
+.aw1 small{color:var(--ink3);font-size:11px}
+.tg.iss{background:#4a7fc9}.tg.beg{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;padding-top:14px}
+.wc{display:flex;gap:12px;padding:12px;border-radius:16px;background:var(--card-solid);border:1px solid var(--line);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.wc:hover{border-color:var(--accent)}
+.th{width:74px;aspect-ratio:9/16;border-radius:10px;overflow:hidden;background:var(--line);flex-shrink:0;position:relative}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th b{position:absolute;left:0;right:0;bottom:0;padding:10px 5px 4px;font-size:12px;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));font-weight:800}
+.wc .nm{font-weight:800;font-size:15px;line-height:1.3}
+.wc .nm small{font-weight:500;color:var(--ink3);font-size:11.5px;margin-left:4px}
+.wc .tgs{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 6px}
+.wc .big{font-size:12px;color:var(--ink3)}
+.wc .big b{font-size:19px;color:var(--ink);font-weight:800;margin-right:3px}
+.wc .why{font-size:11.5px;color:var(--ink2);margin-top:4px;line-height:1.5}
+.more{display:block;margin:14px auto 0;border:1px solid var(--line);background:var(--card-solid);color:var(--ink2);font:inherit;font-weight:700;padding:8px 18px;border-radius:12px;cursor:pointer}
+
+.hotrow{display:grid;grid-template-columns:210px minmax(0,1fr);gap:18px;padding:16px 0;border-bottom:1px solid var(--line)}
+.hotrow:last-child{border-bottom:0}
+.hv{display:flex;gap:10px}
+.hv .th{width:86px}
+.hv .t{font-weight:800;font-size:15px}
+.hv .m{font-size:12px;color:var(--ink3);margin-top:3px;line-height:1.5}
+.hv .m b{color:var(--hot);font-size:15px}
+.rel-h{font-size:12.5px;font-weight:700;color:var(--ink2);margin-bottom:8px}
+.rels{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.rl{padding:10px 11px;border-radius:12px;background:var(--card-solid);border:1px solid var(--line);cursor:pointer;font:inherit;color:inherit;text-align:left}
+.rl:hover{border-color:var(--accent)}
+.rl .nm{font-weight:800;font-size:13.5px}
+.rl .m{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.rl .m b{color:var(--ink);font-size:14px}
+
+.gmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding-top:14px}
+.gc{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px 14px 8px}
+.gc h4{margin:0;font-size:15px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gc .d{font-size:11.5px;color:var(--ink3);margin:4px 0 6px;line-height:1.5}
+.gi{display:grid;grid-template-columns:18px 40px minmax(0,1fr);gap:9px;align-items:center;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.gi .no{font-family:"Cormorant Garamond",serif;font-size:17px;color:var(--ink3);text-align:center}
+.gi .th{width:40px}
+.gi .nm{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi .m{font-size:11.5px;color:var(--ink3);margin-top:2px}
+.gi .m b{color:var(--ink)}
+.gi:hover .nm{text-decoration:underline}
+.gc .mo{border:0;background:transparent;color:var(--accent);font:inherit;font-size:12px;font-weight:700;cursor:pointer;padding:8px 0 4px}
+
+.seas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding-top:14px}
+.sc{background:var(--card-solid);border:1px solid var(--line);border-radius:16px;padding:14px}
+.sc .dd{font-family:"Cormorant Garamond",serif;font-size:26px;font-weight:600;color:var(--accent);line-height:1}
+.sc.soon .dd{color:var(--hot)}
+.sc .n{font-weight:800;font-size:15px;margin-top:4px}
+.sc .m{font-size:11.5px;color:var(--ink3)}
+.sc ul{margin:8px 0 0;padding:0;list-style:none}
+.sc li{font-size:12.5px;padding:3px 0;cursor:pointer}
+.sc li:hover{text-decoration:underline}
+
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:1160px}
+th{position:sticky;top:0;text-align:left;font-weight:700;color:var(--ink2);padding:8px 8px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;background:var(--card-solid)}
+th.on{color:var(--ink)}
+td{padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+td.n{text-align:right}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:rgba(127,110,190,.07)}
+td .w{font-weight:700}
+
+.ch-row{display:grid;grid-template-columns:28px minmax(0,1fr) 70px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.ch-row .nm{font-weight:700}
+.ch-row .m{font-size:11.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-row .c{text-align:right;font-weight:800;color:var(--accent)}
+.feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.fd{display:flex;gap:10px;padding:10px;border-radius:12px;background:var(--card-solid);border:1px solid var(--line)}
+.fd .th{width:60px}
+.fd .t{font-size:12.5px;font-weight:700;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.fd .m{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.fd .m b{color:var(--hot)}
+
+.modal{position:fixed;inset:0;background:rgba(20,16,40,.45);z-index:40;display:grid;place-items:start center;padding:40px 16px;overflow-y:auto}
+.modal .card{width:min(880px,100%);padding:24px 24px 18px;background:var(--card-solid)}
+.modal h2{margin:0;font-size:22px;font-weight:800}
+.modal .x{position:absolute;right:16px;top:12px;border:0;background:transparent;font-size:24px;color:var(--ink3);cursor:pointer}
+.modal .sub{font-size:12.5px;color:var(--ink3);margin-top:4px}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:14px 0}
+.kv div{background:var(--sky1);border-radius:12px;padding:9px 11px}
+.kv span{display:block;font-size:11px;color:var(--ink3)}
+.kv b{font-size:17px}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
+.links a{font-size:12.5px;font-weight:700;border:1px solid var(--line);padding:6px 12px;border-radius:10px;background:var(--card)}
+.links a:hover{border-color:var(--accent)}
+.vg{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+.vg a{display:block}
+.vg .th{width:100%}
+.vg .t{font-size:11.5px;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vg .m{font-size:11px;color:var(--ink3)}
+.h5{font-size:13px;font-weight:800;margin:16px 0 8px}
+.whyl{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--ink2);line-height:1.7}
+
+/* 진입 판정 (아모르 꿀통레이더) */
+.v-GO{background:var(--honey)}.v-차선{background:var(--cand)}.v-보류{background:var(--weak)}
+.v-피함{background:transparent;color:var(--hot);border:1px solid var(--hot)}.v-미확인{background:transparent;color:var(--ink3);border:1px dashed var(--line)}
+.ens{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(310px,100%),1fr));gap:14px;padding-top:14px}
+.en{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:16px;background:var(--card-solid);border:1px solid var(--line);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.en:hover{border-color:var(--accent)}
+.en.go{border-color:color-mix(in srgb,var(--honey) 55%,var(--line))}
+.en .top{display:flex;gap:12px;min-width:0}
+.en .nm{font-weight:800;font-size:15px;line-height:1.3}
+.en .nm small{font-weight:500;color:var(--ink3);font-size:11.5px;margin-left:4px}
+.en .pt{font-family:"Cormorant Garamond",serif;font-size:32px;font-weight:600;line-height:1;color:var(--accent)}
+.en.go .pt{color:var(--honey)}
+.en .pt small{font-family:"Noto Sans KR",sans-serif;font-size:11px;color:var(--ink3);margin-left:3px}
+.en .why{font-size:12px;font-weight:700;color:var(--ink);line-height:1.5}
+.bars{display:grid;grid-template-columns:auto minmax(0,1fr) 24px;gap:3px 7px;font-size:11px;color:var(--ink3);align-items:center;margin-top:6px}
+.bars i{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.bars i b{display:block;height:100%;background:var(--accent)}
+.bars .rv{text-align:right;font-variant-numeric:tabular-nums}
+.cmp{font-size:11.5px;color:var(--ink2);background:var(--sky1);border-radius:10px;padding:7px 9px;line-height:1.55}
+.cmp b{color:var(--ink)}
+.riv{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;font-size:12.5px;margin-top:4px}
+.riv a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.riv span{color:var(--ink3);font-variant-numeric:tabular-nums;text-align:right}
+/* 병행 운행: 옛 숫자와 새 숫자 나란히 */
+.nw{border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin-top:14px}
+.nwt{width:100%;min-width:0;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.nwt th,.nwt td{padding:4px 6px;text-align:right;font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line)}
+.nwt th:first-child,.nwt td:first-child{text-align:left;color:var(--ink3);font-weight:500}
+.nwt th{font-size:11px;color:var(--ink3);font-weight:600}
+.nwt td.dif{font-weight:800;color:var(--ink)}
+.nwt tr[data-w]{cursor:pointer}
+.nwn{font-size:11.5px;color:var(--ink2);line-height:1.65;margin-top:6px}
+.rise{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px;padding-top:14px}
+.rise .th{width:100%}
+.rise .t{font-size:11.5px;margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rise .m{font-size:11px;color:var(--ink3)}
+.rise .wk{display:flex;gap:4px;align-items:center;flex-wrap:wrap;border:0;background:transparent;padding:0;font:inherit;font-size:12px;font-weight:800;color:var(--accent);cursor:pointer;text-align:left;margin-top:4px}
+.cal{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:12px;padding-top:8px}
+.cl{background:var(--card-solid);border:1px solid var(--line);border-radius:14px;padding:12px}
+.cl .ah{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cl .dd{font-family:"Cormorant Garamond",serif;font-size:23px;font-weight:600;color:var(--accent);line-height:1}
+.cl.new .dd{color:var(--hot)}
+.cl .n{font-weight:800;font-size:14.5px}
+.cl .m{font-size:11.5px;color:var(--ink3);margin-top:3px}
+.cl .ld{font-size:12px;margin-top:7px;line-height:1.6;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.cl .ld .an{font-weight:700;color:var(--ink2)}
+.pl{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.calh{font-size:13px;font-weight:800;margin:14px 0 0;display:flex;gap:6px;align-items:center}
+
+/* 찾기 */
+.srch{position:relative;margin-top:14px;max-width:560px}
+.srch .search{width:100%;font-size:14px;padding:10px 14px}
+.sres{margin-top:8px;background:var(--card-solid);border:1px solid var(--line);border-radius:14px;max-height:min(70vh,560px);overflow-y:auto;padding:6px 10px 10px}
+.sres .sh{font-size:11.5px;font-weight:800;color:var(--ink3);margin:10px 2px 4px}
+.sr{display:flex;gap:10px;width:100%;padding:7px 4px;border:0;border-bottom:1px solid var(--line);background:transparent;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.sr:hover{background:var(--sky1)}
+.sr .th{width:38px}
+.sr .nm{font-weight:800;font-size:13.5px}
+.sr .nm small{font-weight:500;color:var(--ink3);font-size:11px;margin-left:3px}
+.sr .tgs{margin:3px 0}
+.sr .m,.sres .m{font-size:11.5px;color:var(--ink3)}
+.sr .m b{color:var(--ink)}
+.sa{display:block;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13px;color:inherit}
+.sa .aw{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+.sp{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:10px}
+.addw{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr));gap:8px;background:var(--sky1);border-radius:14px;padding:12px;margin-top:8px}
+.addw label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink3);font-weight:700}
+.addw select,.addw input{font:inherit;font-size:13px;color:var(--ink);background:var(--card-solid);border:1px solid var(--line);border-radius:10px;padding:6px 9px;min-width:0}
+.addw .row{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* 원클릭 제작 */
+.mk{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:8px;background:var(--sky1);border-radius:14px;padding:12px}
+.mk label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--ink3);font-weight:700}
+.mk select,.mk textarea,.mko input{font:inherit;font-size:13px;color:var(--ink);background:var(--card-solid);border:1px solid var(--line);border-radius:10px;padding:6px 9px;min-width:0}
+.mk textarea{grid-column:1/-1;min-height:54px;resize:vertical}
+.mk .row{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mk .btn{margin:0}
+.mkmsg{grid-column:1/-1;font-size:12.5px;color:var(--ink2);line-height:1.6}
+.mkmsg.bad{color:var(--hot)}
+.mkst{font-size:12px;color:var(--ink3)}
+.mko{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
+.mko:last-child{border-bottom:0}
+.mko .s{font-size:12px;font-weight:800;padding:3px 0;border-radius:999px;text-align:center;color:#fff;background:var(--weak);height:fit-content}
+.mko .s.on{background:var(--accent)}.mko .s.ok{background:var(--honey)}.mko .s.bad{background:var(--hot)}
+.mko .n{font-weight:800;font-size:14px}
+.mko .m{font-size:11.5px;color:var(--ink3);margin-top:2px;line-height:1.5}
+.mko .st{font-size:12.5px;color:var(--ink2);margin-top:4px;line-height:1.5;overflow-wrap:anywhere}
+.mko .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;align-items:center}
+.mko .act input{flex:1 1 220px}
+
+@media (max-width:900px){
+  .hotrow{grid-template-columns:1fr}
+  .cards{grid-template-columns:1fr}
+  .gmap{grid-template-columns:1fr}
+  .modal{padding:16px}
+  .modal .card{padding:20px 16px 14px}
+}
+</style>
+</head>
+<body>
+<div class="lock hidden" id="lock">
+  <div class="card sparkle">
+    <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="var(--sky2)"/><circle cx="32" cy="34" r="13" fill="none" stroke="var(--accent)" stroke-width="2.4"/><circle cx="32" cy="34" r="5" fill="var(--accent)"/><line x1="32" y1="34" x2="48" y2="20" stroke="var(--up)" stroke-width="3" stroke-linecap="round"/></svg>
+    <h1>영드레이더</h1>
+    <p>비밀번호를 한 번 넣으면 이 브라우저는 기억해요.</p>
+    <form id="lockForm"><input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호"><button class="btn" type="submit">열기</button></form>
+    <div class="msg" id="lockMsg"></div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <aside class="card side sparkle">
+    <div class="logo">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="var(--sky2)"/><circle cx="32" cy="34" r="13" fill="none" stroke="var(--accent)" stroke-width="2.4"/><circle cx="32" cy="34" r="5" fill="var(--accent)"/><line x1="32" y1="34" x2="48" y2="20" stroke="var(--up)" stroke-width="3" stroke-linecap="round"/><text x="50" y="14" font-size="10" fill="var(--star)">✦</text></svg>
+      <div>
+        <div class="brand">YD Radar</div>
+        <div class="brand-ko">영드레이더</div>
+        <div class="brand-sub">✦ 영드짜 꿀통 찾기 ✦</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#today">◎ 오늘 뭐 만들까 <span class="cnt" id="nToday"></span></a>
+      <a href="#entry">▲ 진입 성적표 <span class="cnt" id="nGo"></span></a>
+      <a href="#make" id="navMake" class="mkonly">▶ 원클릭 제작 <span class="cnt" id="nMake"></span></a>
+      <a href="#hot">✦ 막 뜨는 작품 <span class="cnt" id="nHot"></span></a>
+      <a href="#rise">↯ 요즘 떡상 쇼츠 <span class="cnt" id="nRise"></span></a>
+      <a href="#actor">★ 배우 타이밍 <span class="cnt" id="nAct"></span></a>
+      <a href="#cal">◷ 신작 달력 <span class="cnt" id="nCal"></span></a>
+      <a href="#map">◈ 결 지도</a>
+      <a href="#season">◔ 시즌·이슈</a>
+      <a href="#all">☰ 작품 전체 <span class="cnt" id="nAll"></span></a>
+      <a href="#newcmp" id="navNew" class="hidden">⇄ 장부만 비교 <span class="cnt" id="nNew"></span></a>
+      <a href="#chan">◉ 정답지 채널 <span class="cnt" id="nChan"></span></a>
+      <a href="https://charismaang-cyber.github.io/daily-flow/">↗ 오늘의 흐름</a>
+    </nav>
+    <div class="side-foot">
+      <svg class="moon" viewBox="0 0 48 48" aria-hidden="true"><path d="M30 6a18 18 0 1 0 12 30A16 16 0 0 1 30 6z" fill="#f3d98b"/></svg>
+      <div class="upd">마지막 받음<br><b id="at">—</b></div>
+      <div class="dots">● ● ● ● ● ● ● ● ●</div>
+      <div class="theme" role="group" aria-label="화면 밝기">
+        <button data-t="light" title="밝게">☀</button>
+        <button data-t="dark" title="어둡게">☾</button>
+        <button id="relock" title="잠그기">🔒</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="card hero sparkle">
+      <div class="trail"></div>
+      <div style="min-width:0">
+        <div class="eyebrow">YD RADAR · <span id="todayDate"></span></div>
+        <h1>오늘 뭐 만들까요?<em>find the honey pot</em></h1>
+        <div class="sum" id="summary">불러오는 중…</div>
+        <div class="note" id="note"></div>
+        <div class="err" id="errs"></div>
+        <div class="srch"><input class="search" id="sq" type="search" autocomplete="off" placeholder="작품·배우·결 찾기 — 예: 주유소, 신은경, 학폭">
+          <div class="sres hidden" id="sres"></div></div>
+      </div>
+    </section>
+
+    <section class="tiles" id="tiles"></section>
+
+    <section class="card panel">
+      <div class="bar">
+        <button class="chip" id="noBc">방송 빼기</button>
+        <button class="chip" id="noRisk">저작권 높음 빼기</button>
+        <button class="chip" id="noAni">애니 빼기</button>
+        <span id="ottChips" style="display:contents"></span>
+      </div>
+      <div class="rule"><b>꿀통</b> = 남의 100만+ 2편↑ · 그중 6개월 넘게 살아 있음 · 최근 60일 50만+ 없음 &nbsp;/&nbsp; <b>심정지 재진입</b> = 100만+ 기록 있고 90일 넘게 아무도 안 올림 &nbsp;/&nbsp; <b>경쟁 중</b> = 최근 60일 50만+ 남의 쇼츠 있음(라필: 지금 올리는 사람 있으면 넘김) &nbsp;/&nbsp; <b>막 뜸</b> = 3일 안에 10만+ — 이 작품은 누가 잡는 중, 연관작이 트래픽을 받음</div>
+      <div class="rule"><b>진입 판정</b>(아모르 꿀통레이더 방식, 위 상태와 따로) — 막 튀었나? 블루오션인가? 둘 중 하나면 <b>GO</b> · 붐비거나 저작권 높으면(애니·방송은 표시만) <b>피함</b> · 점수 = 수요 40% + 온도 20% + 여유(100−경쟁강도) 40%</div>
+    </section>
+
+    <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · 수요(100만+ 많은 구간) → GO·차선 → 정답지 편수 순 · 피함은 맨 아래에 접어 둠</div></div>
+    <section class="card panel sparkle"><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button><button class="more hidden" id="todayAvBtn"></button><div class="cards hidden" id="todayAv" style="margin-top:14px"></div><button class="more hidden" id="todayAvMore">더 보기</button></section>
+
+    <div class="sec-h" id="entry"><div><span class="eyebrow">ENTRY SCORE</span><h2>진입 성적표<em id="cEntry"></em></h2></div><div class="at">최근 30일 같은 작품 만든 채널 수가 적을수록 기회 · 100만이어도 식었으면 다시 만들 자리</div></div>
+    <section class="card panel"><div class="bar" id="enChips"></div><div class="ens" id="enList"></div><button class="more hidden" id="enMore">더 보기</button></section>
+
+    <div class="sec-h mkonly" id="make"><div><span class="eyebrow">ONE-CLICK</span><h2>원클릭 제작 현황<em id="cMake"></em></h2></div><div class="at">작품 창의 «원클릭 제작»으로 주문 · 이 PC의 제작 도우미가 원클릭\제작법.md 대로 만듦</div></div>
+    <section class="card panel mkonly"><div class="bar"><button class="chip" id="mkConn">도우미 연결 확인</button><span class="mkst" id="mkState">PC에서 «원클릭 제작 도우미 켜기»를 켜 두면 여기에 만드는 중·완성이 떠요.</span></div><div id="axBox"></div><div id="mkList"></div></section>
+
+    <div class="sec-h" id="hot"><div><span class="eyebrow">RISING + RELATED</span><h2>막 뜨는 작품 + 연관 꿀통<em id="cHot"></em></h2></div><div class="at">최근 3일 10만+ · 감시 채널 RSS + 작품 검색</div></div>
+    <section class="card panel"><div id="hotList"></div></section>
+
+    <div class="sec-h" id="rise"><div><span class="eyebrow">DAILY RISING SHORTS</span><h2>요즘 떡상 쇼츠<em id="cRise"></em></h2></div><div class="at">최근 30일 남이 올린 10만+ 쇼츠 · 레이더가 하루 100편 대신 봄</div></div>
+    <section class="card panel"><div class="bar" id="riseChips"></div><div class="rise" id="riseList"></div><button class="more hidden" id="riseMore">더 보기</button></section>
+
+    <div class="sec-h" id="actor"><div><span class="eyebrow">ACTOR TIMING</span><h2>배우 타이밍<em id="cAct"></em></h2></div><div class="at" id="actAt">곧 시작하거나 방영·상영 중인 드라마(TV·OTT)·영화 주연의 지난 영화 · 첫 공개 1주 전 ~ 3주차가 제때</div></div>
+    <section class="card panel"><div class="bar" id="actChips"></div><div class="acts" id="actList"></div><button class="more hidden" id="actMore">더 보기</button></section>
+
+    <div class="sec-h" id="cal"><div><span class="eyebrow">RELEASE CALENDAR</span><h2>신작 달력<em id="cCal"></em></h2></div><div class="at" id="calAt">신작이거나, 보고 또 보는 명작이거나 — 둘 중 하나가 타율이 높다</div></div>
+    <section class="card panel"><div class="bar" id="calChips"></div><div id="calList"></div></section>
+
+    <div class="sec-h" id="map"><div><span class="eyebrow">GYEOL MAP</span><h2>결 지도</h2></div><div class="at">진입하기 좋은 순서(GO → 차선 → 보류 → 피함) · 라필: 결 맞추기가 90%, 같은 결 3편 이상 정해 두고 시작</div></div>
+    <section class="card panel sparkle">
+      <div class="bar" id="sideChips"></div>
+      <div class="gmap" id="gmap"></div>
+    </section>
+
+    <div class="sec-h" id="season"><div><span class="eyebrow">SEASON · ISSUE</span><h2>시즌·이슈</h2></div><div class="at">라필: 삼일절·광복절엔 일제강점기, 추석엔 고부갈등 · 이슈는 오늘의 흐름 구글 트렌드</div></div>
+    <section class="card panel"><div class="seas" id="seasons"></div><div id="issues"></div></section>
+
+    <div class="sec-h" id="all"><div><span class="eyebrow">ALL WORKS</span><h2>작품 전체<em id="cAll"></em></h2></div><div class="at">제목 줄을 누르면 정렬 · 고른 작품(works.txt) + 배우 타이밍 + 자동 발굴(위키백과 후보 중 큰 쇼츠 있는 것)</div></div>
+    <section class="card panel"><div class="tbl-wrap"><table id="tbl"></table></div></section>
+
+    <div id="newSec" class="hidden"><div class="sec-h" id="newcmp"><div><span class="eyebrow">PARALLEL RUN</span><h2>장부만 비교<em id="cNew"></em></h2></div><div class="at">판정은 이제 검색 + 채널 장부를 합친 숫자로 해요 · 여기선 장부만 따로 본 값과 비교해요</div></div>
+    <section class="card panel"><div id="newBody"></div></section></div>
+
+    <div class="sec-h" id="chan"><div><span class="eyebrow">ANSWER CHANNELS · FEED</span><h2>정답지 채널 · 소재 피드</h2></div><div class="at">100만+ 쇼츠를 낸 채널을 자동으로 모아 지켜봄</div></div>
+    <section class="grid2">
+      <div class="card panel"><div class="panel-h"><h3>정답지 채널</h3><span class="sub">100만+ 편수</span></div><div class="scroll" id="chans"></div></div>
+      <div class="card panel"><div class="panel-h"><h3>목록에 없는 급상승</h3><span class="sub">감시 채널이 3일 안에 10만+ — 새 작품 후보</span></div><div class="scroll"><div class="feed" id="feed"></div></div></div>
+    </section>
+    <div class="foot">기준: 라필 「영드짜 예능 뽀개기」 · 슈드종신자 「저작권 박살내기」 · 쇼츠 검색은 쿼터 없이 긁고 조회수·날짜는 유튜브 API</div>
+  </main>
+</div>
+
+<div class="modal hidden" id="modal"><div class="card" id="mbody"></div></div>
+
+<script>
+const root = document.documentElement;
+function setTheme(t){ root.dataset.theme = t; try{localStorage.setItem("theme",t)}catch(e){}
+  document.querySelectorAll(".theme button[data-t]").forEach(b=>b.classList.toggle("on",b.dataset.t===t)); }
+let saved = null; try{saved = localStorage.getItem("theme")}catch(e){}
+if(saved) setTheme(saved);
+document.querySelectorAll(".theme button[data-t]").forEach(b=>b.onclick=()=>setTheme(b.dataset.t));
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = v => v==null ? "—" : v>=1e8 ? (v/1e8).toFixed(1).replace(/\.0$/,"")+"억" : v>=1e6 ? Math.round(v/1e4).toLocaleString()+"만"
+  : v>=1e4 ? (v/1e4).toFixed(1).replace(/\.0$/,"")+"만" : v.toLocaleString();
+const ago = d => d==null ? "—" : d<1 ? Math.round(d*24)+"시간 전" : d<60 ? Math.round(d)+"일 전" : d<730 ? Math.round(d/30)+"달 전" : Math.round(d/365)+"년 전";
+const ST = {"꿀통":["honey","남의 100만+ 2편↑ · 6개월 넘게 살아 있음 · 최근 60일 50만+ 없음 → 지금 들어가기 좋음"],
+  "심정지 재진입":["revive","100만+ 기록이 있는데 90일 넘게 아무도 안 올림 → 다시 살리기"],
+  "막 뜸":["hot","최근 3일 안에 10만+ 뜬 남의 쇼츠 → 이 작품은 누가 잡는 중, 연관작이 트래픽을 받음"],
+  "후보":["cand","100만+가 1편뿐이거나 6개월 생존이 아직 확인 안 됨"],
+  "경쟁 중":["busy","최근 60일 안에 50만+ 남의 쇼츠 → 라필 책: 지금 올리는 사람 있으면 넘김"],
+  "수요 약함":["weak","남의 100만+ 쇼츠가 없음"],
+  "쇼츠 거의 없음":["few","쇼츠가 5개 미만 → 라필 책: 배급사가 지운 것일 수 있으니 하지 않음"],
+  "아직":["none","아직 안 잼 — 다음 회차에"]};
+const RANK = {"꿀통":0,"심정지 재진입":1,"막 뜸":2,"후보":3,"경쟁 중":4,"수요 약함":5,"쇼츠 거의 없음":6,"아직":7};
+const RISK = {"낮음":0,"?":1,"중간":2,"방송":3,"높음":4};
+const EN = {"GO":["v-GO","막 튀었거나(3일 10만+·배우 타이밍 제때·시즌·트렌드·최근 30일 100만+) 블루오션(최근 30일 다른 채널 1곳·3편 이하)이면서 수요 있음 → 지금 들어감"],
+  "차선":["v-차선","수요는 있는데 경쟁이 조금 있음 → GO 다음에"],
+  "보류":["v-보류","수요 미검증 — 남의 100만+ 없고 50만+ 2편 미만"],
+  "피함":["v-피함","붐빔(경쟁강도 60↑) · 저작권 높음(애니·방송 빼고) · 쇼츠 5개 미만"],
+  "미확인":["v-미확인","아직 안 잼 — 다음 회차에"]};
+const EN_RANK = {"GO":0,"차선":1,"보류":2,"피함":3,"미확인":4};
+const enOf = w => w.en || {v:"미확인"};
+const enTag = w => { const e = enOf(w); return `<span class="tg ${EN[e.v][0]}" title="진입 판정: ${esc(EN[e.v][1])}${e.why?" — "+esc(e.why):""}">${esc(e.v)}${e.s!=null?" "+Math.round(e.s):""}</span>`; };
+const byEntry = (a,b) => EN_RANK[enOf(a).v]-EN_RANK[enOf(b).v] || (enOf(b).s??-999)-(enOf(a).s??-999);
+// 체크 순서: 수요(남의 100만+ 5편↑ → 2~4편 → 1편) → 경쟁(GO → 차선) → 제작 지속성(정답지 편수) → 점수
+const demandTier = w => (w.n100||0)>=5 ? 0 : (w.n100||0)>=2 ? 1 : 2;
+const byDemand = (a,b) => demandTier(a)-demandTier(b) || EN_RANK[enOf(a).v]-EN_RANK[enOf(b).v] || ((b.ans||{}).n||0)-((a.ans||{}).n||0) || (enOf(b).s??-999)-(enOf(a).s??-999);
+const stTag = st => `<span class="tg s-${ST[st][0]}" title="${esc(ST[st][1])}">${esc(st)}</span>`;
+const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
+// 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
+const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
+const OTTS = ["넷플릭스","디즈니+","티빙","왓챠","웨이브"];
+const OTT0 = {wait:["시청처 확인 중","아직 저스트워치에 물어보지 않았어요. 30분마다 조금씩 채워져요"], miss:["시청처 못 찾음","저스트워치에서 이 작품을 못 찾았어요. 어디에도 없다는 뜻은 아니에요"], none:["구독 없음","저스트워치에 구독으로 볼 곳이 없어요 (대여·구매만이거나 없음). 쿠팡플레이처럼 자료가 빠진 경우도 있어요"]};
+const ott0 = w => w.ott===undefined ? OTT0.wait : w.ott===null ? OTT0.miss : w.ott.length ? null : OTT0.none;
+const ottTag = w => { const z = ott0(w); return z ? `<span class="tg ott0" title="${esc(z[1])}">${esc(z[0])}</span>` : w.ott.map(s => `<span class="tg ott" title="한국에서 구독으로 볼 수 있음 (저스트워치 기준)">${esc(s)}</span>`).join(" "); };
+const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"")+(w.auto==="disc"?' <span class="tg disc" title="위키백과 한국 영화·OTT 드라마 후보 중 #제목 쇼츠 화면에 50만+ 쇼츠가 있어 저절로 올라온 작품 (결은 위키백과 분류로 짐작)">자동 발굴</span>':"")+" "+ottTag(w);
+
+let D = null, W = {}, opt = {noBc:false, noRisk:false, noAni:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
+try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
+const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({noBc:opt.noBc,noRisk:opt.noRisk,noAni:opt.noAni,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP})); }catch(e){} };
+const vis = w => (!opt.noBc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.noAni || w.k!=="애니") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
+const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
+
+// ── 병행 운행: 검색 + 채널 장부를 합친 새 숫자 (ledger.py). 없거나 못 풀어도 옛 화면은 그대로 ──
+let NEW = null, PW = null;
+function loadNew(){
+  return new Promise(res => { const s = document.createElement("script"); s.src = "new.enc.js?t=" + Date.now();
+    s.onload = () => res(window.YD_NEW || null); s.onerror = () => res(null); document.head.appendChild(s); });
+}
+async function startNew(){
+  try{ const box = await loadNew(); if(box && PW){ NEW = await unlock(box, PW); drawNew(); } }catch(e){}
+}
+function newBlock(w){
+  const n = NEW && NEW.w[w.i]; if(!n) return "";
+  const e = enOf(w), c = w.cp || {}, top = (w.top||{}).v, nt = (n.top||{}).v;
+  const row = (k, a, b) => `<tr><td>${k}</td><td>${a}</td><td class="${a!==b?"dif":""}">${b}</td></tr>`;
+  const src = n.src || {}, notes = [];
+  notes.push(`최근 30일 찾은 길: 검색 ${src.s||0}편 · 채널 장부 ${src.l||0}편 · 둘 다 ${src.b||0}편`);
+  if(n.top) notes.push(`새 최고 영상: <a href="https://www.youtube.com/shorts/${esc(n.top.id)}" target="_blank" rel="noopener">${esc(n.top.t)}</a> (${esc(n.top.ch)})`);
+  if(n.ser) notes.push(`시리즈로 묶어 셈: ${n.ser.map(esc).join(" · ")} — 이 작품만 ${n.own.ch}곳 ${n.own.n}편, 30일 최고 ${fmt(n.own.m30||null)}`);
+  if(n.pan) notes.push(`같은 이름 작품과 못 가른 영상 ${n.pan.n}편(최고 ${fmt(n.pan.top)})은 ${n.pan.inc?"다른 작품 쪽이 거의 안 잡혀서 이 작품으로 침":"안 셈"}`);
+  if(n.nc) notes.push(`예능·행사·패러디·배우 인생 이야기 ${n.nc.n}편(최고 ${fmt(n.nc.top)})은 작품 클립이 아니라서 뺌`);
+  return `<div class="nw"><div class="h5" style="margin:0">⇄ 장부만 따로 본 값 <span class="m" style="font-weight:500;color:var(--ink3)">찾은 만큼만 센 값이라 실제보다 적을 수 있어요</span></div>
+    <table class="nwt"><tr><th></th><th>화면 숫자</th><th>장부만</th></tr>
+    ${row("진입 판정", esc(e.v), esc(n.v))}${row("상태", esc(w.st), esc(n.st))}
+    ${row("최근 30일 경쟁", `${c.ch??0}곳 ${c.n??0}편`, `${n.ch}곳 ${n.n}편`)}${row("30일 최고", fmt(c.m30||null), fmt(n.m30||null))}
+    ${row("남의 최고", fmt(top), fmt(nt))}${row("100만+", `${w.n100??0}편`, `${n.n100}편`)}${row("경쟁강도", `${c.s??0}`, `${n.cs}`)}</table>
+    ${(n.riv||[]).length?`<div class="h5">장부의 최근 30일 경쟁 채널</div><div class="riv">${n.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    <div class="nwn">${notes.join("<br>")}</div></div>`;
+}
+function drawNew(){
+  const s = NEW.stat, rows = D.works.filter(w => NEW.w[w.i] && vis(w));
+  const diff = rows.filter(w => enOf(w).v !== "미확인" && enOf(w).v !== NEW.w[w.i].v);
+  const gap = w => Math.abs(Math.log10((NEW.w[w.i].m30||1) / ((w.cp||{}).m30||1)));
+  diff.sort((a,b) => gap(b) - gap(a));
+  $("#navNew").classList.remove("hidden"); $("#newSec").classList.remove("hidden");
+  $("#nNew").textContent = diff.length; $("#cNew").textContent = `판정 다른 작품 ${diff.length} / ${rows.length}`;
+  const t = s.tot || {}, cov = (k, nm) => { const S=t[k+"S"]||0, L=t[k+"L"]||0, B=t[k+"B"]||0, U=t[k+"U"]||0, est = B>=5 ? S*L/B : null;
+    return `<tr><td>${nm}</td><td>${U.toLocaleString()}편</td><td>${S.toLocaleString()}편</td><td>${L.toLocaleString()}편</td><td>${est?Math.round(est).toLocaleString()+"편":"아직 적음"}</td><td>${est?Math.min(100,Math.round(U/est*100))+"%":"—"}</td></tr>`; };
+  const pend = [s.cat_todo?`작품 목록 ${s.cat_todo.toLocaleString()}편`:"", s.old_left?`옛 영상 다시 판정 ${s.old_left.toLocaleString()}편`:"", s.tab_left?`채널 첫 등록 ${s.tab_left.toLocaleString()}곳`:""].filter(Boolean);
+  $("#newBody").innerHTML = `<div class="kv"><div><span>쌓기 시작</span><b>${esc(s.since||"—")}</b></div><div><span>지켜보는 채널</span><b>${(s.ch||0).toLocaleString()}곳</b></div><div><span>그중 영화 채널 판단</span><b>${(s.film||0).toLocaleString()}곳</b></div>
+      <div><span>작품이 잡힌 영상</span><b>${(s.vids||0).toLocaleString()}편</b></div><div><span>오늘 쓴 키</span><b>${(s.units||0).toLocaleString()}유닛</b></div><div><span>막힌 횟수</span><b>${s.block||0}번</b></div></div>
+    <div class="nwn">${pend.length?`아직 쌓는 중: ${pend.join(" · ")} — 끝날 때까지 숫자는 실제보다 적어요. `:""}RSS는 채널당 최신 15편만 보여서, 처음 며칠은 특히 적게 잡혀요.</div>
+    <div class="h5">얼마나 찾나 <span class="m" style="font-weight:500;color:var(--ink3)">최근 30일 · 검색과 장부가 겹치는 양으로 추정 (실제 전체는 이보다 많을 수 있음)</span></div>
+    <table class="nwt"><tr><th>조회수</th><th>합쳐 찾음</th><th>검색</th><th>채널 장부</th><th>추정 전체</th><th>찾은 비율</th></tr>${cov("b10","10만 이상")}${cov("b1","1만~10만")}${cov("b0","1만 미만")}</table>
+    <div class="h5">판정이 다른 작품 <span class="m" style="font-weight:500;color:var(--ink3)">30일 최고 차이가 큰 순 · 앞 60편 · 눌러서 비교</span></div>
+    ${diff.length?`<div class="tbl-wrap"><table class="nwt"><tr><th>작품</th><th>화면 판정</th><th>장부만 판정</th><th>30일 경쟁 화면</th><th>장부</th><th>30일 최고 화면</th><th>장부</th></tr>${diff.slice(0,60).map(w => { const n = NEW.w[w.i], c = w.cp||{};
+      return `<tr data-w="${esc(w.i)}"><td>${esc(w.n)}</td><td>${esc(enOf(w).v)}</td><td class="dif">${esc(n.v)}</td><td>${c.ch??0}곳 ${c.n??0}편</td><td>${n.ch}곳 ${n.n}편</td><td>${fmt(c.m30||null)}</td><td>${fmt(n.m30||null)}</td></tr>`; }).join("")}</table></div>`:'<div class="nwn">아직 없어요.</div>'}`;
+  bind();
+}
+
+// ── 잠금 풀기 ──
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlock(box, pw){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(box.salt), iterations:box.iter, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, false, ["decrypt"]);
+  const raw = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(box.iv)}, key, b64(box.ct));
+  const txt = await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return JSON.parse(txt);
+}
+function loadBox(){
+  return new Promise(res => { const s = document.createElement("script"); s.src = "data.enc.js?t=" + Date.now();
+    s.onload = () => res(window.YD_BOX || null); s.onerror = () => res(null); document.head.appendChild(s); });
+}
+async function start(){
+  const box = await loadBox();
+  if(!box){ $("#lock").classList.remove("hidden"); $("#lockMsg").textContent = "아직 자료가 없어요 — 첫 실행이 끝나면 생겨요."; return; }
+  let pw = null; try{ pw = localStorage.getItem("yd_pw"); }catch(e){}
+  if(pw){ try{ const d = await unlock(box, pw); PW = pw; show(d); startNew(); return; }catch(e){} }
+  $("#lock").classList.remove("hidden"); $("#pw").focus();
+  $("#lockForm").onsubmit = async ev => { ev.preventDefault(); const p = $("#pw").value; $("#lockMsg").textContent = "여는 중…";
+    try{ const d = await unlock(box, p); try{ localStorage.setItem("yd_pw", p); }catch(e){} $("#lock").classList.add("hidden"); PW = p; show(d); startNew(); }
+    catch(e){ $("#lockMsg").textContent = "비밀번호가 달라요."; } };
+}
+$("#relock").onclick = () => { try{ localStorage.removeItem("yd_pw"); }catch(e){} location.reload(); };
+
+// ── 그리기 ──
+function show(d){
+  D = d; W = {}; d.works.forEach(w => W[w.i] = w);
+  $("#app").classList.remove("hidden");
+  $("#at").textContent = d.at.slice(5);
+  $("#todayDate").textContent = d.at.slice(0,10);
+  $("#noBc").classList.toggle("on", opt.noBc); $("#noRisk").classList.toggle("on", opt.noRisk); $("#noAni").classList.toggle("on", opt.noAni);
+  $("#noBc").onclick = () => { opt.noBc = !opt.noBc; saveOpt(); show(D); };
+  $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
+  $("#noAni").onclick = () => { opt.noAni = !opt.noAni; saveOpt(); show(D); };
+  $("#ottChips").innerHTML = `<span class="m" style="align-self:center;margin-left:8px;color:var(--ink3)" title="고른 서비스 중 어디든 있는 작품만 보여요. 더 고르면 작품이 늘어나고, 아무것도 안 고르면 전부 보여요 (저스트워치 한국 기준)">이 서비스에 있는 것만 보기</span>` + OTTS.map(s => `<button class="chip ${(opt.myOtt||[]).includes(s)?"on":""}" data-ott="${esc(s)}">${esc(s)}</button>`).join("");
+  document.querySelectorAll("[data-ott]").forEach(b => b.onclick = () => { const s = b.dataset.ott, a = opt.myOtt||[]; opt.myOtt = a.includes(s) ? a.filter(x => x!==s) : [...a, s]; saveOpt(); show(D); });
+  $("#sq").oninput = drawSearch;
+  $("#sq").onkeydown = e => { if(e.key==="Escape"){ $("#sres").classList.add("hidden"); }
+    if(e.key==="Enter"){ const f = $("#sres [data-w]"); if(f) f.click(); else if($("#sProbe")) $("#sProbe").click(); } };
+  $("#sq").onfocus = () => { if($("#sq").value.trim()) drawSearch(); };
+  $("#mkConn").onclick = mkRefresh; $("#navMake").onclick = () => { mkRefresh(); };
+  // 원클릭(주문 보내기·제작 현황)은 도우미가 띄운 레이더(127.0.0.1)에서만 — 인터넷 주소·휴대폰에선 «주문 글 복사»만
+  document.querySelectorAll(".mkonly").forEach(el => el.classList.toggle("hidden", !MK_LOCAL));
+  if(MK_LOCAL && !mkTimer) mkRefresh();
+  draw();
+  if(location.hash) document.querySelector(location.hash)?.scrollIntoView();
+}
+function draw(){
+  const ws = D.works.filter(vis), cnt = st => ws.filter(w=>w.st===st).length;
+  const pool = ws.filter(w => w.st==="꿀통" || w.st==="심정지 재진입"), isAv = w => enOf(w).v==="피함";
+  const good = pool.filter(w => !isAv(w)).sort(byDemand), avoid = pool.filter(isAv).sort(byDemand);
+  $("#summary").textContent = `작품 ${D.scanned}/${D.total}편을 쟀고, 지금 들어가기 좋은 것 ${good.length}편`;
+  $("#note").textContent = `30분마다 오래된 작품부터 다시 잼 · 이번 방식: ${D.mode} · 오늘 유튜브 키 ${D.units.toLocaleString()}유닛`;
+  $("#errs").textContent = D.mode.includes("막힘") ? "유튜브가 서버 긁기를 막아서 API 검색으로 돌고 있어요(하루 약 30편만)." : "";
+  const nGo = ws.filter(w => enOf(w).v==="GO").length;
+  const tiles = [["진입 GO", nGo, "honey"], ["꿀통", cnt("꿀통"), "honey"], ["심정지 재진입", cnt("심정지 재진입"), "revive"], ["막 뜸", D.hot.filter(i=>vis(W[i])).length, "hot"],
+    ["경쟁 중", cnt("경쟁 중"), "busy"], ["잰 작품", D.scanned, ""]];
+  $("#tiles").innerHTML = tiles.map(([n,v,c]) => `<div class="card tile"><div class="nm">${n}</div><div class="px" style="${c?`color:var(--${c})`:""}">${v}</div></div>`).join("");
+  $("#nToday").textContent = good.length; $("#nHot").textContent = D.hot.length || ""; $("#nAll").textContent = D.total; $("#nChan").textContent = D.channels.length;
+  $("#nGo").textContent = nGo || ""; $("#nRise").textContent = (D.rise||[]).length || ""; $("#nCal").textContent = (D.cal||[]).length || "";
+  drawToday(good, avoid); drawEntry(); drawHot(); drawRise(); drawActor(); drawCal(); drawMap(); drawSeason(); drawTable(); drawChan();
+}
+// 진입 성적표 (아모르 꿀통레이더 STEP 4·5): 경쟁도와 온도 → 막 튀었나? 블루오션인가?
+let enN = 18;
+function enCard(w){
+  const e = enOf(w), c = w.cp || {}, t = w.top || {};
+  const bar = (n,v) => `<span>${n}</span><i><b style="width:${Math.max(0,Math.min(100,v||0))}%"></b></i><span class="rv">${v??"—"}</span>`;
+  return `<button class="en ${e.v==="GO"?"go":""}" data-w="${esc(w.i)}"><div class="top">${thumb(t.id, fmt(t.v))}<div style="min-width:0;flex:1">
+    <div class="nm">${esc(w.n)}<small>${esc(w.y)} · ${esc(w.g)}</small></div>
+    <div class="tgs" style="margin:5px 0">${enTag(w)} ${stTag(w.st)} ${rkTag(w)}</div>
+    <div class="pt">${e.s!=null?Math.round(e.s):"—"}<small>진입 점수</small></div>
+    <div class="bars">${bar("수요",e.dem)}${bar("온도",e.tmp)}${bar("여유",e.cmp!=null?100-e.cmp:null)}</div></div></div>
+    <div class="why">${esc(e.why||"")}</div>
+    <div class="cmp">최근 60일 100만+ <b>${w.r60m??0}편</b> · 최근 30일 경쟁 <b>최소 ${c.ch??0}곳 ${c.n??0}편</b><br>경쟁강도 <b>${c.s??0}/100</b>${c.n?` · 1위 몫 ${c.share}% · 지난 7일 ${c.r7}편${c.surge?" · <b>지난주 급증</b>":""}`:""} · 검색 표본이라 하한</div></button>`;
+}
+function drawEntry(){
+  const all = D.works.filter(vis), cntV = v => all.filter(w => enOf(w).v===v).length, v = opt.enV || "GO";
+  const ws = (v==="all" ? all : all.filter(w => enOf(w).v===v)).sort(byEntry);
+  $("#cEntry").textContent = ws.length;
+  $("#enChips").innerHTML = [["all","전체",all.length], ...Object.keys(EN).map(k => [k,k,cntV(k)])].map(([k,l,c]) =>
+    `<button class="chip ${v===k?"on":""}" data-env="${k}" title="${esc((EN[k]||[])[1]||"")}">${l} ${c}</button>`).join("");
+  document.querySelectorAll("[data-env]").forEach(b => b.onclick = () => { opt.enV = b.dataset.env; enN = 18; saveOpt(); drawEntry(); });
+  $("#enList").innerHTML = ws.length ? ws.slice(0, enN).map(enCard).join("") : `<div class="empty">이 칸에 든 작품이 아직 없어요.</div>`;
+  $("#enMore").classList.toggle("hidden", ws.length <= enN);
+  $("#enMore").onclick = () => { enN += 18; drawEntry(); };
+  bind();
+}
+// 요즘 떡상 쇼츠 (아모르 데일리 떡상쇼츠): 하루 100편 보던 숙제를 레이더가 대신
+let riseN = 36;
+function drawRise(){
+  const all = (D.rise||[]).filter(r => W[r.w] && vis(W[r.w])), v = opt.riseV || "all";
+  let rs = v==="all" ? all : all.filter(r => enOf(W[r.w]).v===v);
+  if(opt.riseNew) rs = [...rs].sort((a,b) => a.age-b.age);
+  $("#cRise").textContent = rs.length;
+  $("#riseChips").innerHTML = [["all","전체"],["GO","GO"],["차선","차선"],["보류","보류"],["피함","피함"]].map(([k,l]) =>
+    `<button class="chip ${v===k?"on":""}" data-rv="${k}">${l} ${k==="all"?all.length:all.filter(r => enOf(W[r.w]).v===k).length}</button>`).join("")
+    + `<button class="chip ${opt.riseNew?"on":""}" id="riseNew">최근 올라온 순</button>`;
+  document.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => { opt.riseV = b.dataset.rv; riseN = 36; saveOpt(); drawRise(); });
+  $("#riseNew").onclick = () => { opt.riseNew = !opt.riseNew; saveOpt(); drawRise(); };
+  $("#riseList").innerHTML = rs.length ? rs.slice(0, riseN).map(r => { const w = W[r.w]; return `<div>
+    <a href="https://www.youtube.com/shorts/${esc(r.id)}" target="_blank" rel="noopener">${thumb(r.id, fmt(r.v))}<div class="t">${esc(r.t)}</div><div class="m">${esc(r.ch)} · ${ago(r.age)}</div></a>
+    <button class="wk" data-w="${esc(w.i)}">${esc(w.n)} ${enTag(w)}</button></div>`; }).join("")
+    : `<div class="empty">최근 30일 안에 10만 넘게 뜬 남의 쇼츠가 아직 없어요.</div>`;
+  $("#riseMore").classList.toggle("hidden", rs.length <= riseN);
+  $("#riseMore").onclick = () => { riseN += 36; drawRise(); };
+  bind();
+}
+// 신작 달력 (아모르 시즌·오픈 달력): 최근 공개 ~ 앞으로 45일, 공개처별
+const calGrp = t => t.kind==="영화" ? "극장" : t.ott ? "OTT" : "TV";
+function calCard(t, cls){
+  const dd = t.d > 0 ? "D-"+t.d : t.d === 0 ? "D-DAY" : `${Math.floor(-t.d/7)+1}주차`;
+  const wiki = "https://ko.wikipedia.org/wiki/" + encodeURIComponent(t.t.replace(/ /g,"_"));
+  return `<div class="cl ${cls}"><div class="ah"><span class="dd">${dd}</span><span class="n">${esc(t.n)}</span><span class="pl">${esc(t.p)}</span></div>
+    <div class="m">${t.kind==="영화"?"영화":"드라마"} · ${esc(t.ch||"?")} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"}${t.est?"":" ~ "+t.end.slice(5).replace("-","/")} · <a href="${wiki}" target="_blank" rel="noopener">위키백과</a></div>
+    <div class="ld">${t.leads.map(l => `<span class="an">${esc(l.n)}</span>` + l.w.map(i => W[i]).filter(w => w && vis(w)).sort(byEntry).slice(0,3)
+      .map(w => `<button class="aw1" data-w="${esc(w.i)}">${esc(w.n)} ${enTag(w)}</button>`).join("")).join(" <span class=\"m\">·</span> ")}</div></div>`;
+}
+function drawCal(){
+  const C = D.cal || [], p = opt.calP || "all", pc = {};
+  C.forEach(t => pc[t.p] = (pc[t.p]||0) + 1);
+  const cs = C.filter(t => p==="all" || calGrp(t)===p || t.p===p);
+  $("#cCal").textContent = cs.length;
+  $("#calAt").textContent = `신작이거나, 보고 또 보는 명작이거나 — 둘 중 하나가 타율이 높다 · 주연 이름 옆은 그 배우의 지난 영화 · 위키백과 ${D.actors_at||"—"}`;
+  $("#calChips").innerHTML = [["all","전체"],["OTT","OTT"],["극장","극장"],["TV","방송사"]].map(([k,l]) =>
+    `<button class="chip ${p===k?"on":""}" data-cp="${k}">${l} ${k==="all"?C.length:C.filter(t => calGrp(t)===k).length}</button>`).join("")
+    + Object.entries(pc).filter(([k]) => !["OTT","극장"].includes(k)).sort((a,b) => b[1]-a[1])
+      .map(([k,n]) => `<button class="chip ${p===k?"on":""}" data-cp="${esc(k)}">${esc(k)} ${n}</button>`).join("");
+  document.querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { opt.calP = b.dataset.cp; saveOpt(); drawCal(); });
+  const groups = [["막 공개 · 최근 7일", t => t.d <= 0 && t.d >= -7, "new", (a,b) => b.d-a.d],
+                  ["곧 공개", t => t.d > 0, "", (a,b) => a.d-b.d], ["방영·상영 중", t => t.d < -7, "", (a,b) => b.d-a.d]];
+  $("#calList").innerHTML = cs.length ? groups.map(([h,f,cls,so]) => { const g = cs.filter(f).sort(so); return g.length ?
+    `<div class="calh">${h} <span class="badge">${g.length}</span></div><div class="cal">${g.map(t => calCard(t,cls)).join("")}</div>` : ""; }).join("")
+    : `<div class="empty">${C.length ? "이 공개처엔 작품이 없어요." : "위키백과에서 드라마·영화 일정을 받는 중이에요 — 하루 한 번 새로 받아요."}</div>`;
+  bind();
+}
+// 배우 타이밍: 첫 공개 7일 전 ~ 3주차가 제때 → 제때인 것, 그다음 꿀통 많은 것 먼저
+let actN = 12;
+function drawActor(){
+  const A = D.actors || [], good = w => w.st==="꿀통" || w.st==="심정지 재진입";
+  let ts = A.map(t => ({...t, leads: t.leads.map(l => ({n: l.n, ws: l.w.map(i=>W[i]).filter(w => w && vis(w)).sort(byGood)})).filter(l => l.ws.length)}))
+    .filter(t => t.leads.length);
+  const nGood = t => t.leads.reduce((s,l) => s + l.ws.filter(good).length, 0), prime = t => t.d <= 7 && t.d >= -21;
+  if(opt.actGood) ts = ts.filter(t => nGood(t) > 0);
+  if(opt.actOtt) ts = ts.filter(t => t.ott);
+  ts.sort((a,b) => prime(b)-prime(a) || nGood(b)-nGood(a) || Math.abs(a.d)-Math.abs(b.d));
+  $("#cAct").textContent = ts.length; $("#nAct").textContent = A.length || "";
+  $("#actAt").textContent = `곧 시작하거나 방영·상영 중인 드라마(TV·OTT)·영화 주연의 지난 한국 영화 · 첫 공개 1주 전 ~ 3주차가 제때 · 위키백과 ${D.actors_at||"—"}`;
+  $("#actChips").innerHTML = `<button class="chip ${opt.actGood?"on":""}" id="actGood">꿀통 있는 것만</button><button class="chip ${opt.actOtt?"on":""}" id="actOtt">OTT만</button>`;
+  $("#actGood").onclick = () => { opt.actGood = !opt.actGood; saveOpt(); drawActor(); };
+  $("#actOtt").onclick = () => { opt.actOtt = !opt.actOtt; saveOpt(); drawActor(); };
+  $("#actList").innerHTML = ts.length ? ts.slice(0, actN).map(t => {
+    const dd = t.d > 0 ? "D-"+t.d : t.d === 0 ? "D-DAY" : `${Math.floor(-t.d/7)+1}주차`;
+    const ph = t.d > 7 ? "미리 준비" : t.d >= 0 ? "지금 준비" : t.d >= -21 ? "지금이 제때" : (t.kind==="영화" ? "상영 중" : "방영 중");
+    const where = t.ott ? `OTT · ${t.ch}` : t.kind==="영화" ? `영화 · ${t.ch||"배급 ?"}` : `TV · ${t.ch}`;
+    return `<div class="ac ${prime(t)?"now":""}"><div class="ah"><span class="dd">${dd}</span><span class="n">${esc(t.n)}</span><span class="ph">${ph}</span></div>
+      <div class="m">${esc(where)} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"}${t.est?"":" ~ "+t.end.slice(5).replace("-","/")}</div>
+      ${t.leads.map(l => `<div class="al"><div class="an">${esc(l.n)}</div><div class="aw">${l.ws.map(w =>
+        `<button class="aw1" data-w="${esc(w.i)}">${esc(w.n)} <small>${esc(w.y)}</small>${stTag(w.st)}${w.risk!=="낮음"?rkTag(w):""}</button>`).join("")}</div></div>`).join("")}</div>`; }).join("")
+    : `<div class="empty">${A.length ? "조건에 맞는 작품이 없어요." : "위키백과에서 드라마·영화 일정을 받는 중이에요 — 하루 한 번 새로 받아요."}</div>`;
+  $("#actMore").classList.toggle("hidden", ts.length <= actN);
+  $("#actMore").onclick = () => { actN += 12; drawActor(); };
+  bind();
+}
+function card(w){
+  const t = w.top || {};
+  return `<button class="wc" data-w="${esc(w.i)}">${thumb(t.id, fmt(t.v))}<div style="min-width:0">
+    <div class="nm">${esc(w.n)}<small>${esc(w.y)} · ${esc(w.g)}</small></div>
+    <div class="tgs">${tagsOf(w)}</div>
+    <div class="big"><b>${fmt(t.v)}</b>남의 최고 · 100만+ <b style="font-size:15px">${w.n100||0}</b>편</div>
+    <div class="why">${esc((w.why||[]).slice(1).join(" · "))}</div>
+    ${w.ans?`<div class="why">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</div>`:""}</div></button>`;
+}
+let todayN = 12, avN = 12, avOpen = false;
+function drawToday(good, avoid){
+  $("#cToday").textContent = good.length;
+  $("#todayList").innerHTML = good.length ? good.slice(0, todayN).map(card).join("") : `<div class="empty">아직 없어요. 작품을 다 재면(첫날 몇 시간) 채워져요.</div>`;
+  $("#todayMore").classList.toggle("hidden", good.length <= todayN);
+  $("#todayMore").onclick = () => { todayN += 12; drawToday(good, avoid); };
+  // 피함은 목록에서 빼되 접어 둬서 볼 수는 있게
+  $("#todayAvBtn").classList.toggle("hidden", !avoid.length);
+  $("#todayAvBtn").textContent = avOpen ? `피함 ${avoid.length}편 접기` : `피함 ${avoid.length}편 보기 (붐비거나 저작권 높은 작품)`;
+  $("#todayAvBtn").onclick = () => { avOpen = !avOpen; drawToday(good, avoid); };
+  $("#todayAv").classList.toggle("hidden", !avOpen);
+  $("#todayAv").innerHTML = avOpen ? avoid.slice(0, avN).map(card).join("") : "";
+  $("#todayAvMore").classList.toggle("hidden", !avOpen || avoid.length <= avN);
+  $("#todayAvMore").onclick = () => { avN += 12; drawToday(good, avoid); };
+  bind();
+}
+function relCard(r){
+  const w = W[r.i]; if(!w) return "";
+  return `<button class="rl" data-w="${esc(w.i)}"><div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:4px 0">${stTag(w.st)} ${rkTag(w)}</div>
+    <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0} · ${esc(r.why)}</div></button>`;
+}
+function drawHot(){
+  const hs = D.hot.map(i=>W[i]).filter(w=>w && vis(w));
+  $("#cHot").textContent = hs.length;
+  $("#hotList").innerHTML = hs.length ? hs.map(w => { const h = w.hot[0]; return `<div class="hotrow">
+    <a class="hv" href="https://www.youtube.com/shorts/${esc(h.id)}" target="_blank" rel="noopener">${thumb(h.id)}<div style="min-width:0">
+      <div class="t">🔥 ${esc(w.n)}</div><div class="m"><b>${fmt(h.v)}</b> · ${ago(h.age)}<br>${esc(h.ch)}<br>${esc(h.t).slice(0,60)}</div>
+      <div class="tgs" style="margin-top:6px">${tagsOf(w)}</div></div></a>
+    <div><div class="rel-h">🍯 이어서 볼 연관작 ${w.rel.length}</div><div class="rels">${w.rel.map(relCard).join("") || '<div class="empty" style="padding:8px">같은 결·같은 채널 쪽에 들어갈 만한 작품이 아직 없어요</div>'}</div></div></div>`; }).join("")
+    : `<div class="empty">최근 3일 안에 10만 넘게 뜬 작품 쇼츠가 아직 없어요.<br>정답지 채널 ${D.channels.length}곳을 30분마다 지켜보고 있어요.</div>`;
+  bind();
+}
+const SIDES = [["all","전체"],["남","남자향"],["여","여자향"],["공통","공통"]];
+const gOpen = {};
+function drawMap(){
+  $("#sideChips").innerHTML = SIDES.map(([k,n]) => `<button class="chip ${opt.side===k?"on":""}" data-side="${k}">${n}</button>`).join("")
+    + `<button class="chip ${opt.good?"on":""}" id="goodOnly" title="진입 판정 GO·차선만">들어갈 만한 것만</button>`;
+  document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { opt.side = b.dataset.side; saveOpt(); drawMap(); });
+  $("#goodOnly").onclick = () => { opt.good = !opt.good; saveOpt(); drawMap(); };
+  // 진입하기 좋은 순서: 결 안에서는 GO → 차선 → 보류 → 피함(같은 판정은 점수 높은 순), 결 카드는 GO 많은 결부터
+  const cards = D.gyeol.filter(g => opt.side==="all" || g.side===opt.side).map(g => {
+    const all = g.ids.map(i=>W[i]).filter(w => w && vis(w)).sort(byEntry), n = v => all.filter(w => enOf(w).v===v).length;
+    return {g, all, ids: opt.good ? all.filter(w => ["GO","차선"].includes(enOf(w).v)) : all, go: n("GO"), cha: n("차선"), bo: n("보류"), pi: n("피함"), best: all.length ? enOf(all[0]).s ?? -999 : -999};
+  }).filter(c => c.ids.length).sort((a,b) => b.go-a.go || b.cha-a.cha || b.best-a.best);
+  $("#gmap").innerHTML = cards.map(({g, ids, go, cha, bo, pi}) => {
+    const lim = gOpen[g.k] ? 99 : 6;
+    return `<div class="gc"><h4>${esc(g.k)} <span class="badge">${g.side}</span>${g.pass_>=3?'<span class="tg s-honey" title="라필: 같은 결 3편 이상 → 결 채널로 시작 가능">결 채널 가능</span>':""}</h4>
+      <div class="d">${esc(g.d)}<br>진입 GO ${go}편 · 차선 ${cha}편 · 보류 ${bo}편 · 피함 ${pi}편</div>
+      ${ids.slice(0,lim).map((w,k) => `<div class="gi" data-w="${esc(w.i)}"><div class="no">${k+1}</div>${thumb((w.top||{}).id)}<div style="min-width:0">
+        <div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:3px 0">${enTag(w)} ${stTag(w.st)} ${rkTag(w)}</div>
+        <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0}${w.gap!=null?` · 마지막 ${w.gap}일 전`:""}</div></div></div>`).join("")}
+      ${ids.length>lim?`<button class="mo" data-g="${esc(g.k)}">${ids.length-lim}편 더 보기</button>`:""}</div>`; }).join("");
+  document.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { gOpen[b.dataset.g] = 1; drawMap(); });
+  bind();
+}
+function drawSeason(){
+  $("#seasons").innerHTML = D.seasons.slice(0,6).map(s => {
+    const ws = D.works.filter(w => s.g.includes(w.g) && vis(w) && ["꿀통","심정지 재진입","후보"].includes(w.st)).sort(byGood).slice(0,4);
+    return `<div class="sc ${s.soon?"soon":""}"><div class="dd">${s.left<=0?"D-DAY":"D-"+s.left}</div><div class="n">${esc(s.n)}</div>
+      <div class="m">${esc(s.date)} · ${s.g.map(esc).join(", ")}${s.soon?" · 지금 준비할 때":""}</div>
+      <ul>${ws.map(w => `<li data-w="${esc(w.i)}">${stTag(w.st)} ${esc(w.n)} <span class="m">${fmt((w.top||{}).v)}</span></li>`).join("") || '<li class="m">이 결에서 들어갈 만한 작품이 아직 없어요</li>'}</ul></div>`; }).join("");
+  const iw = D.works.filter(w => w.issue && vis(w));
+  $("#issues").innerHTML = iw.length ? `<div class="h5">오늘의 흐름 구글 트렌드에 걸린 작품</div>` + iw.map(w => `<div class="tr" data-w="${esc(w.i)}" style="cursor:pointer"><div><div class="kw">${esc(w.n)} <small>${esc(w.issue)}</small></div><div class="tgs">${tagsOf(w)}</div></div></div>`).join("") : "";
+  bind();
+}
+const COLS = [["n","작품"],["g","결"],["d","종류·배급"],["en","진입"],["st","상태"],["risk","저작권"],["ott","시청처"],["cp","30일 경쟁"],["n100","100만+"],["top","남의 최고"],["alive","6개월 생존"],["r60big","60일 50만+"],["gap","마지막 업로드"],["ht","#동영상"],["at","잰 때"]];
+function val(w,k){ return k==="ott" ? ((w.ott||[]).join()||"힣") : k==="en" ? EN_RANK[enOf(w).v]*1000-(enOf(w).s??-999) : k==="cp" ? (w.cp ? w.cp.s : 1e9) : k==="top" ? (w.top||{}).v||0 : k==="ht" ? (w.ht||[])[0] ?? 1e12 : k==="st" ? RANK[w.st]*1e9-(w.n100||0) : k==="risk" ? RISK[w.risk] : k==="d" ? w.k+w.d : w[k] ?? -1; }
+function drawTable(){
+  const ws = D.works.filter(vis).sort((a,b) => { const x = val(a,opt.sort), y = val(b,opt.sort); return (x>y?1:x<y?-1:0)*(opt.asc?1:-1); });
+  $("#cAll").textContent = ws.length;
+  $("#tbl").innerHTML = `<thead><tr>${COLS.map(([k,n]) => `<th data-s="${k}" class="${opt.sort===k?"on":""}">${n}${opt.sort===k?(opt.asc?" ▲":" ▼"):""}</th>`).join("")}</tr></thead><tbody>`
+    + ws.map(w => `<tr data-w="${esc(w.i)}"><td><span class="w">${esc(w.n)}</span> <span class="m" style="color:var(--ink3)">${esc(w.y)}</span></td><td>${esc(w.g)}</td><td>${esc(w.k)} · ${esc(w.d)}</td>
+      <td>${enTag(w)}</td><td>${stTag(w.st)}</td><td>${rkTag(w)}</td><td>${ott0(w) ? `<span style="color:var(--ink3)">${esc(ott0(w)[0].replace("시청처 ",""))}</span>` : w.ott.map(esc).join(" · ")}</td><td class="n">${w.cp?`${w.cp.ch}곳 ${w.cp.n}편`:"—"}</td><td class="n">${w.n100??"—"}</td><td class="n">${fmt((w.top||{}).v)}</td><td class="n">${w.alive??"—"}</td>
+      <td class="n">${w.r60big??"—"}</td><td class="n">${w.gap!=null?w.gap+"일 전":"—"}</td><td class="n">${(w.ht||[])[0]!=null?w.ht[0].toLocaleString():"—"}</td><td>${esc(w.at||"—")}</td></tr>`).join("") + "</tbody>";
+  document.querySelectorAll("#tbl th").forEach(th => th.onclick = () => { const k = th.dataset.s; opt.asc = opt.sort===k ? !opt.asc : !["n100","top","alive","gap"].includes(k); opt.sort = k; drawTable(); });
+  bind();
+}
+function drawChan(){
+  $("#chans").innerHTML = D.channels.length ? D.channels.slice(0,150).map((c,k) => `<div class="ch-row"><div class="rank">${k+1}</div><div style="min-width:0">
+    <div class="nm"><a href="https://www.youtube.com/channel/${esc(c.cid)}/shorts" target="_blank" rel="noopener">${esc(c.t)}</a></div><div class="m">${c.works.map(esc).join(" · ")}</div></div><div class="c">${c.n100}</div></div>`).join("")
+    : `<div class="empty">작품을 재면서 100만+ 쇼츠를 낸 채널이 여기에 모여요.</div>`;
+  $("#feed").innerHTML = D.feed.length ? D.feed.map(f => `<a class="fd" href="https://www.youtube.com/shorts/${esc(f.id)}" target="_blank" rel="noopener">${thumb(f.id)}<div style="min-width:0">
+    <div class="t">${esc(f.t)}</div><div class="m"><b>${fmt(f.v)}</b> · ${ago(f.age)} · ${esc(f.ch)}</div><div class="m">${f.tags.slice(0,5).map(t=>"#"+esc(t)).join(" ")}</div></div></a>`).join("")
+    : `<div class="empty">정답지 채널이 3일 안에 10만 넘게 낸 영상 중 목록에 없는 작품이 여기에 떠요.</div>`;
+}
+function bind(){ document.querySelectorAll("[data-w]").forEach(el => el.onclick = () => openW(el.dataset.w)); }
+
+// ── 작품 자세히 ──
+function openW(i){
+  const w = W[i]; if(!w) return;
+  const q = encodeURIComponent(w.q.replace(/^#/,"")), t = encodeURIComponent(w.tag), nm = encodeURIComponent(w.n), e = enOf(w), c = w.cp || {};
+  $("#mbody").innerHTML = `<button class="x" id="mx" aria-label="닫기">×</button>
+    <h2>${esc(w.n)}</h2><div class="sub">${esc(w.y)} · ${esc(w.k)} · ${esc(w.d)} · ${esc(w.g)} · 잰 때 ${esc(w.at||"아직")}</div>
+    <div class="tgs" style="margin-top:8px">${tagsOf(w)}</div>
+    <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li><li>시청처: ${ott0(w) ? esc(ott0(w)[1]) : w.ott.map(esc).join(", ")}</li>${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.act?w.act.map(x=>`<li>배우 타이밍: ${esc(x)}</li>`).join(""):""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
+    <div class="kv"><div><span>남의 최고</span><b>${fmt((w.top||{}).v)}</b></div><div><span>100만+</span><b>${w.n100??"—"}편</b></div><div><span>50만+</span><b>${w.n50??"—"}편</b></div>
+      <div><span>6개월 생존 100만+</span><b>${w.alive??"—"}편</b></div><div><span>최근 60일 올라온 것</span><b>${w.r60??"—"}편</b></div><div><span>그중 50만+</span><b>${w.r60big??"—"}편</b></div>
+      <div><span>마지막 업로드</span><b>${w.gap!=null?w.gap+"일 전":"—"}</b></div><div><span>#${esc(w.tag)}</span><b>${(w.ht||[])[0]!=null?w.ht[0].toLocaleString()+"개":"—"}</b></div></div>
+    <div class="h5">▲ 진입 판정 <span class="m" style="font-weight:500;color:var(--ink3)">아모르 꿀통레이더 방식 — 위 상태(책 기준)와 따로</span></div>
+    <div class="kv"><div><span>판정</span><b>${esc(e.v)}</b></div><div><span>진입 점수</span><b>${e.s!=null?Math.round(e.s):"—"}</b></div>
+      <div><span>수요 · 온도</span><b>${e.dem??"—"} · ${e.tmp??"—"}</b></div><div><span>경쟁강도</span><b>${c.s??"—"}/100</b></div>
+      <div><span>최근 30일 경쟁 (최소)</span><b>${c.ch??0}곳 ${c.n??0}편</b></div><div><span>30일 최고</span><b>${fmt(c.m30||null)}</b></div></div>
+    <div class="cmp">${esc(e.why||"")}${(e.how||[]).length?"<br>때: "+e.how.map(esc).join(" · "):""}${c.n?`<br>1위 몫 ${c.share}% · 지난 7일 ${c.r7}편${c.surge?" · 지난주 급증":""} · 검색과 채널 장부에서 찾은 만큼만 센 최소값이라 실제는 더 많을 수 있음`:""}</div>
+    ${(c.riv||[]).length?`<div class="h5">최근 30일 경쟁 채널</div><div class="riv">${c.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    ${newBlock(w)}
+    ${w.probe ? addForm(w) : ""}
+    ${mkForm(w)}
+    <div class="links" style="margin-top:14px"><a href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">유튜브 검색</a><a href="https://www.youtube.com/hashtag/${t}/shorts" target="_blank" rel="noopener">#${esc(w.tag)}</a>
+      ${w.ans?`<a href="https://www.youtube.com/channel/${esc(w.ans.cid)}/shorts" target="_blank" rel="noopener">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</a>`:""}
+      <a href="https://ko.wikipedia.org/w/index.php?search=${nm}" target="_blank" rel="noopener">위키백과</a><a href="https://namu.wiki/w/${nm}" target="_blank" rel="noopener">나무위키</a>
+      <a href="https://search.naver.com/search.naver?query=${nm}" target="_blank" rel="noopener">네이버</a><a href="https://trends.google.co.kr/trends/explore?geo=KR&amp;q=${nm}" target="_blank" rel="noopener">구글 트렌드</a></div>
+    ${w.hot&&w.hot.length?`<div class="h5">🔥 최근 3일 뜬 것</div><div class="vg">${w.hot.map(vcell).join("")}</div>`:""}
+    <div class="h5">남이 터뜨린 쇼츠 (조회수 순)</div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
+    ${w.rel&&w.rel.length?`<div class="h5">🍯 이어서 볼 연관작</div><div class="rels">${w.rel.map(relCard).join("")}</div>`:""}`;
+  $("#modal").classList.remove("hidden");
+  $("#mx").onclick = closeM; bind(); mkBind(w); if(w.probe) addBind(w);
+}
+
+// ── 찾기: 작품·배우·결·신작 — 목록에 없으면 PC 도우미가 유튜브를 지금 재 봄 ──
+const nrm = s => String(s ?? "").toLowerCase().replace(/[^0-9a-z가-힣]/g, "");
+function searchAll(q){
+  const k = nrm(q); if(!k) return null;
+  const ws = [];
+  D.works.forEach(w => {
+    const n = nrm(w.n), s = n.startsWith(k) ? 0 : n.includes(k) ? 1 : (nrm(w.q) + nrm(w.tag)).includes(k) ? 2
+      : (nrm(w.g) + nrm(w.d) + nrm(w.y)).includes(k) ? 3 : -1;
+    if(s >= 0) ws.push([s, w]);
+  });
+  ws.sort((a,b) => a[0]-b[0] || byEntry(a[1], b[1]));
+  const acts = [];
+  (D.cal||[]).forEach(t => t.leads.forEach(l => { if(nrm(l.n).includes(k)) acts.push({l, t}); }));
+  return {ws: ws.map(x => x[1]), acts, cals: (D.cal||[]).filter(t => nrm(t.n).includes(k))};
+}
+function drawSearch(){
+  const q = $("#sq").value.trim(), r = searchAll(q), box = $("#sres");
+  if(!r){ box.classList.add("hidden"); return; }
+  const wrow = w => `<button class="sr" data-w="${esc(w.i)}">${thumb((w.top||{}).id)}<div style="min-width:0">
+    <div class="nm">${esc(w.n)}<small>${esc(w.y)} · ${esc(w.g)} · ${esc(w.k)}</small></div>
+    <div class="tgs">${enTag(w)} ${stTag(w.st)} ${rkTag(w)}</div><div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100??0}편${w.at?` · 잰 때 ${esc(w.at)}`:""}</div></div></button>`;
+  let h = "";
+  if(r.ws.length) h += `<div class="sh">작품 ${r.ws.length}</div>` + r.ws.slice(0,10).map(wrow).join("")
+    + (r.ws.length > 10 ? `<div class="m" style="padding:6px 4px">… ${r.ws.length-10}편 더 — 조금 더 길게 쳐 보세요</div>` : "");
+  if(r.acts.length) h += `<div class="sh">배우 — 신작 주연</div>` + r.acts.slice(0,4).map(({l,t}) => `<div class="sa"><b>${esc(l.n)}</b>
+    <span class="m">«${esc(t.n)}» ${esc(t.p)} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"}</span>
+    <div class="aw">${l.w.map(i => W[i]).filter(Boolean).sort(byEntry).map(w => `<button class="aw1" data-w="${esc(w.i)}">${esc(w.n)} ${enTag(w)}</button>`).join("") || '<span class="m">목록에 이 배우의 지난 영화가 없어요</span>'}</div></div>`).join("");
+  if(r.cals.length) h += `<div class="sh">신작 달력</div>` + r.cals.slice(0,4).map(t => `<a class="sa" href="#cal"><b>${esc(t.n)}</b>
+    <span class="m">${esc(t.p)} · ${t.start.slice(5).replace("-","/")} ${t.kind==="영화"?"개봉":"첫 공개"} · ${t.leads.map(l => esc(l.n)).join(", ")}</span></a>`).join("");
+  h += `<div class="sp"><span class="m">${r.ws.length ? "찾는 작품이 목록에 없나요?" : `«${esc(q)}» 은(는) 목록에 없어요.`}</span>
+    ${MK_LOCAL ? `<button class="chip" id="sProbe" title="이 PC의 원클릭 제작 도우미가 유튜브에서 쇼츠를 긁어 레이더와 같은 기준으로 재요 (키 몇 유닛)">PC에서 지금 재 보기</button>` : ""}
+    <a class="chip" href="https://www.youtube.com/results?search_query=${encodeURIComponent(q + " shorts")}" target="_blank" rel="noopener">유튜브에서 보기</a>
+    <span class="m" id="sMsg"></span></div>`;
+  box.innerHTML = h; box.classList.remove("hidden"); bind();
+  if($("#sProbe")) $("#sProbe").onclick = () => probeW(q);
+}
+async function probeW(q){
+  $("#sMsg").textContent = "PC 도우미가 유튜브에서 재는 중… (10~40초)";
+  try{
+    const j = await mkFetch("/probe?q=" + encodeURIComponent(q), null, 90000);
+    if(j.err) return $("#sMsg").textContent = j.err === "없음" ? "도우미가 옛 판이에요 — 도우미 창을 닫고 다시 켜 주세요." : j.err;
+    const w = Object.assign(j, {i: "probe:" + nrm(q), probe: true});
+    W[w.i] = w; $("#sMsg").textContent = ""; openW(w.i);
+  }catch(e){ $("#sMsg").textContent = "PC의 원클릭 제작 도우미에 닿지 않아요 — 이 PC에서 «원클릭 제작 도우미 켜기»를 켜 주세요."; }
+}
+function addForm(w){
+  const sel = (id, a) => `<select id="${id}">${a.map(x => `<option>${esc(x)}</option>`).join("")}</select>`;
+  return `<div class="h5">＋ 영드레이더 목록에 넣기 <span class="m" style="font-weight:500;color:var(--ink3)">지금 잰 결과는 이번 한 번뿐 — 넣으면 30분마다 계속 재요</span></div>
+    <div class="addw"><label>결${sel("awG", D.gyeol.map(g => g.k))}</label><label>종류${sel("awK", ["영화","OTT","방송","외화","미드","애니"])}</label>
+      <label>연도<input id="awY" placeholder="예: 2001"></label><label>배급<input id="awD" placeholder="예: 시네마서비스 (저작권 판단에 씀)"></label>
+      <label style="grid-column:1/-1">검색어 (흔한 낱말 제목이면 배우 이름도 — 예: 친구 유오성 장동건)<input id="awQ" value="${esc(w.n)}"></label>
+      <div class="row"><button class="btn" id="awGo">목록에 넣기</button><span class="m" id="awMsg"></span></div></div>`;
+}
+function addBind(w){
+  $("#awGo").onclick = async () => {
+    $("#awMsg").textContent = "넣는 중…";
+    try{
+      const d = {n:w.n, g:$("#awG").value, k:$("#awK").value, y:$("#awY").value.trim(), d:$("#awD").value.trim(), q:$("#awQ").value.trim()};
+      const j = await mkFetch("/addwork", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)}, 60000);
+      $("#awMsg").textContent = j.msg || j.err || "넣었어요";
+    }catch(e){ $("#awMsg").textContent = "PC의 원클릭 제작 도우미에 닿지 않아요."; }
+  };
+}
+
+// ── 원클릭 제작: 이 PC의 «원클릭 제작 도우미»(원클릭\제작도우미.py, 127.0.0.1:8790)에 주문 ──
+// 도우미가 띄운 레이더(127.0.0.1:87xx)면 같은 주소로 — 인터넷 주소(github.io)에선 브라우저가 내 PC 요청을 막을 수 있음
+const MK_LOCAL = /^http:\/\/(127\.0\.0\.1|localhost):87\d\d$/.test(location.origin);
+const MK = MK_LOCAL ? location.origin : "http://127.0.0.1:8790";
+const MK_CH = ["억스트라·드라마 짜집기","억스트라·눈알쨉쨉이형","억스트라·감동형","억스트라·클래식음악형",
+  "조폭코미디","한 편의 위로","사이다 시네","드라마쇼츠"];  // 억스트라 = 그 방식 지침 통째로 (원클릭\제작법.md 4-2)
+const MK_WAY = ["채널 기본","1인칭 나레이션","감동 반전형","사이다(악역 최후)"];
+const MK_S = {"대기":"", "제작 중":"on", "완성":"ok", "실패":"bad", "멈춤":""};
+const mkDefCh = w => "억스트라·드라마 짜집기";  // 11-03 사용자: 원클릭 기본 틀 = 억스트라 짜집기 (다른 틀은 골라서)
+function mkPayload(w, f){
+  const {i,n,y,g,d,k,q,tag,st,risk,riskwhy,en,cp,top,vids,hot,ans} = w;
+  const same = D.works.filter(o => o.g===w.g && o.i!==w.i && ["GO","차선"].includes(enOf(o).v)).sort(byEntry).slice(0,8)
+    .map(o => ({n:o.n, y:o.y, d:o.d, k:o.k, q:o.q, en:{v:enOf(o).v, s:enOf(o).s, why:enOf(o).why}, top:o.top}));
+  return {work:{i,n,y,g,d,k,q,tag,st,risk,riskwhy,en,cp,top,vids,hot,ans}, ch:f.ch, way:f.way, branch:f.branch, n:+f.n, memo:f.memo, same_gyeol:same};
+}
+function mkForm(w){
+  const e = enOf(w), sel = (a, v) => a.map(x => `<option ${x===v?"selected":""}>${esc(x)}</option>`).join("");
+  return `<div class="h5">▶ 원클릭 제작</div><div class="mk">
+    <label>채널(틀)<select id="mkCh">${sel(MK_CH, mkDefCh(w))}</select></label>
+    <label>구성<select id="mkWay">${sel(MK_WAY, "채널 기본")}</select></label>
+    <label>갈래<select id="mkBr">${sel(["이 작품","같은 결 다른 작품"], "이 작품")}</select></label>
+    <label>편수<select id="mkN">${sel(["1","2","3"], "1")}</select></label>
+    <textarea id="mkMemo" placeholder="하고 싶은 말 (비워도 돼요) — 예: 결말 장면으로, 40초 안쪽"></textarea>
+    <div class="row">${MK_LOCAL ? `<button class="btn" id="mkGo">제작 주문 보내기</button>` : ""}<button class="${MK_LOCAL ? "chip" : "btn"}" id="mkCopy">주문 글 복사</button></div>
+    <div class="mkmsg ${e.v==="피함"?"bad":""}" id="mkMsg">${e.v==="피함" ? "진입 판정이 «피함»이라 이 작품으로는 안 만들어요 — 갈래를 «같은 결 다른 작품»으로 하면 같은 결의 GO 작품으로 만들어요."
+      : MK_LOCAL ? "누르면 이 PC의 도우미가 바로 만들기 시작해요. 진행은 왼쪽 «원클릭 제작» 현황에서 봐요."
+      : "«주문 글 복사»를 눌러 클로드 앱에 붙여 넣으면 만들어요. 버튼 한 번으로 바로 만들려면 PC에서 도우미가 띄운 레이더(127.0.0.1)를 쓰세요."}</div></div>`;
+}
+function mkBind(w){
+  const f = () => ({ch:$("#mkCh").value, way:$("#mkWay").value, branch:$("#mkBr").value, n:$("#mkN").value, memo:$("#mkMemo").value.trim()});
+  const msg = (t, bad) => { $("#mkMsg").textContent = t; $("#mkMsg").classList.toggle("bad", !!bad); };
+  $("#mkCopy").onclick = async () => {
+    const t = "[원클릭 주문] D:\\1월억로드\\영상\\원클릭\\제작법.md 대로 만들어줘. 묻지 말고 끝까지.\n" + JSON.stringify(mkPayload(w, f()), null, 1);
+    try{ await navigator.clipboard.writeText(t); msg("주문 글을 복사했어요 — 클로드 코드에 붙여 넣으면 제작법대로 만들어요."); }
+    catch(e){ msg("복사가 막혔어요 — 브라우저 권한을 확인해 주세요.", true); } };
+  if(!MK_LOCAL) return;
+  $("#mkGo").onclick = async () => {
+    msg("보내는 중…");
+    try{
+      const r = await fetch(MK + "/order", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(mkPayload(w, f()))});
+      const j = await r.json();
+      if(!r.ok) return msg(j.err || "주문이 안 들어갔어요", true);
+      msg(`주문 받았어요 (${j.id}) — «원클릭 제작 현황»에서 진행을 볼 수 있어요.`);
+      try{ localStorage.setItem("yd_mk", "1"); }catch(e){}
+      mkRefresh();
+    }catch(e){ msg("PC의 제작 도우미에 닿지 않아요 — «원클릭 제작 도우미 켜기»를 켜 주세요. 휴대폰이면 «주문 글 복사»를 쓰세요.", true); }
+  };
+}
+// 억스트라 방식으로 새로 만들기 — 레이더 작품 없이 방식 + 주제·링크·파일 (원클릭\제작법.md 4-3)
+let axModes = null;
+function axDraw(){
+  const ms = axModes || [], opts = ms.map(m => `<option value="${esc(m.n)}" ${m.heavy?"disabled":""}>${esc(m.n)}${m.heavy?" — 이 PC 사양으론 안 됨":""}</option>`).join("");
+  $("#axBox").innerHTML = `<div class="h5">＋ 억스트라 방식으로 새로 만들기 <span class="m" style="font-weight:500;color:var(--ink3)">레이더 작품 없이 — 방식을 고르고 주제·링크·파일만 넣으면 그 방식 지침 원문대로 만들어요</span></div>
+    <div class="mk"><label>억스트라 방식<select id="axMode">${opts}</select></label><label>편수<select id="axN"><option>1</option><option>2</option><option>3</option></select></label>
+      <div class="mkmsg" id="axDesc"></div>
+      <textarea id="axIn" placeholder="주제·유튜브 링크·원본 파일 경로 등 그 방식이 필요한 것 (비우면 지침대로 소재를 골라요)"></textarea>
+      <textarea id="axMemo" placeholder="하고 싶은 말 (비워도 돼요)"></textarea>
+      <label style="grid-column:1/-1;flex-direction:row;align-items:center;gap:6px;font-weight:500"><input type="checkbox" id="axPaid"> KIE·ElevenLabs 같은 생성형 유료 호출 허용 (예시 한 편 수준까지 · 타입캐스트는 늘 허용)</label>
+      <div class="row"><button class="btn" id="axGo">제작 주문 보내기</button></div><div class="mkmsg" id="axMsg"></div></div>`;
+  const desc = () => { const m = ms.find(x => x.n === $("#axMode").value) || {};
+    $("#axDesc").textContent = (m.d || "설명 없음") + (m.keys && m.keys.length ? ` · 필요한 키: ${m.keys.join(", ")}` : ""); };
+  $("#axMode").onchange = desc; desc();
+  $("#axGo").onclick = async () => {
+    $("#axMsg").textContent = "보내는 중…";
+    try{
+      const d = {mode:$("#axMode").value, input:$("#axIn").value, n:+$("#axN").value, memo:$("#axMemo").value.trim(), paid:$("#axPaid").checked};
+      const j = await mkFetch("/axorder", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)}, 10000);
+      $("#axMsg").textContent = j.id ? `주문 받았어요 (${j.id}) — 아래 목록에서 진행을 봐요.` : (j.err || "주문이 안 들어갔어요");
+      if(j.id){ $("#axIn").value = ""; $("#axMemo").value = ""; mkRefresh(); }
+    }catch(e){ $("#axMsg").textContent = "PC의 제작 도우미에 닿지 않아요."; }
+  };
+}
+
+let mkTimer = null;
+async function mkFetch(p, init, ms){
+  const c = new AbortController(), t = setTimeout(() => c.abort(), ms || 4000);
+  try{ const r = await fetch(MK + p, {...(init||{}), signal:c.signal}); return await r.json(); } finally{ clearTimeout(t); }
+}
+function mkRow(o){
+  const r = o.result || {}, w = o.work || {}, live = o.state==="대기" || o.state==="제작 중";
+  return `<div class="mko"><div class="s ${MK_S[o.state]||""}">${esc(o.state)}</div><div style="min-width:0">
+    <div class="n">${o.fix?"✎ 고치기 · ":""}${esc(w.n)} <span class="m">${esc(o.ch)} · ${esc(o.way)} · ${esc(o.branch)}${o.n>1?` · ${o.n}편`:""}</span></div>
+    <div class="m">${esc(o.at)} 주문${o.started?` · ${esc(o.started)} 시작`:""}${o.min!=null?` · ${o.min}분`:""}${o.memo?` · 메모 «${esc(o.memo)}»`:""}${o.fix?` · «${esc(o.fix)}»`:""}</div>
+    <div class="st">${o.state==="완성" ? `<b>${esc(String(r.title||"").replace(/\n/g," / "))}</b> · ${esc(r.sec??"?")}초${r.scene?"<br>"+esc(r.scene):""}${Array.isArray(r.checks) ? `<br>검수 ${r.checks.filter(c => c["결과"]!=="실패").length}/${r.checks.length} 통과` : r.checks ? "<br>검수: "+esc(r.checks) : ""}${r.note?"<br>"+esc(r.note):""}` : esc(o.step||"")}</div>
+    <div class="act">${o.state==="완성" ? `<button class="chip" data-mo="${esc(o.id)}">폴더 열기</button><input data-fx="${esc(o.id)}" placeholder="말로 고치기 — 예: 첫 장면 더 세게"><button class="chip" data-fs="${esc(o.id)}">고쳐 줘</button>` : ""}${live ? `<button class="chip" data-mc="${esc(o.id)}">멈추기</button>` : ""}</div></div></div>`;
+}
+async function mkRefresh(){
+  try{
+    const ping = await mkFetch("/ping"), os = await mkFetch("/orders");
+    try{ localStorage.setItem("yd_mk", "1"); }catch(e){}
+    if(!axModes){ try{ axModes = await mkFetch("/axmodes"); axDraw(); }catch(e){} }
+    $("#mkState").textContent = `도우미 연결됨 · ${ping.login ? "클로드 코드 로그인 됨" : "클로드 코드 로그인 필요 — 도우미 창을 닫고 다시 켜면 로그인 화면이 떠요"} · 기다리는 주문 ${ping.queue}`;
+    $("#nMake").textContent = os.filter(o => o.state==="대기" || o.state==="제작 중").length || "";
+    $("#cMake").textContent = os.length || "";
+    const typing = [...document.querySelectorAll("#mkList input")].some(x => x.value || x===document.activeElement);
+    if(!typing){
+      $("#mkList").innerHTML = os.length ? os.map(mkRow).join("") : `<div class="empty">아직 주문이 없어요. 작품을 열고 «원클릭 제작»을 눌러 보세요.</div>`;
+      const post = (p, d) => mkFetch(p, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(d)}).catch(() => null);
+      document.querySelectorAll("[data-mo]").forEach(b => b.onclick = () => post("/open", {id:b.dataset.mo}));
+      document.querySelectorAll("[data-mc]").forEach(b => b.onclick = async () => { if(confirm("이 주문을 멈출까요?")){ await post("/cancel", {id:b.dataset.mc}); mkRefresh(); } });
+      document.querySelectorAll("[data-fs]").forEach(b => b.onclick = async () => {
+        const inp = document.querySelector(`[data-fx="${b.dataset.fs}"]`), t = inp.value.trim();
+        if(!t) return inp.focus();
+        inp.value = ""; await post("/fix", {id:b.dataset.fs, text:t}); mkRefresh(); });
+    }
+    if(!mkTimer) mkTimer = setInterval(mkRefresh, 8000);
+  }catch(e){
+    if(mkTimer){ clearInterval(mkTimer); mkTimer = null; }
+    $("#mkState").textContent = "PC의 제작 도우미에 닿지 않아요 — 이 PC에서 «원클릭 제작 도우미 켜기»를 켠 뒤 «도우미 연결 확인»을 눌러 주세요.";
+  }
+}
+const vcell = v => `<a href="https://www.youtube.com/shorts/${esc(v.id)}" target="_blank" rel="noopener">${thumb(v.id, fmt(v.v))}<div class="t">${esc(v.t)}</div><div class="m">${esc(v.ch)} · ${ago(v.age)}</div></a>`;
+function closeM(){ $("#modal").classList.add("hidden"); }
+$("#modal").onclick = e => { if(e.target.id==="modal") closeM(); };
+document.addEventListener("keydown", e => { if(e.key==="Escape") closeM(); });
+start();
+</script>
+</body>
+</html>
