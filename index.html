@@ -499,7 +499,7 @@ function show(d){
   $("#noBc").onclick = () => { opt.noBc = !opt.noBc; saveOpt(); show(D); };
   $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
   $("#noAni").onclick = () => { opt.noAni = !opt.noAni; saveOpt(); show(D); };
-  $("#ottChips").innerHTML = `<span class="m" style="align-self:center;margin-left:8px;color:var(--ink3)" title="고르면 그 서비스에 있는 작품만 보여요 (저스트워치 한국 기준)">내 구독</span>` + OTTS.map(s => `<button class="chip ${(opt.myOtt||[]).includes(s)?"on":""}" data-ott="${esc(s)}">${esc(s)}</button>`).join("");
+  $("#ottChips").innerHTML = `<span class="m" style="align-self:center;margin-left:8px;color:var(--ink3)" title="고른 서비스 중 어디든 있는 작품만 보여요. 더 고르면 작품이 늘어나고, 아무것도 안 고르면 전부 보여요 (저스트워치 한국 기준)">이 서비스에 있는 것만 보기</span>` + OTTS.map(s => `<button class="chip ${(opt.myOtt||[]).includes(s)?"on":""}" data-ott="${esc(s)}">${esc(s)}</button>`).join("");
   document.querySelectorAll("[data-ott]").forEach(b => b.onclick = () => { const s = b.dataset.ott, a = opt.myOtt||[]; opt.myOtt = a.includes(s) ? a.filter(x => x!==s) : [...a, s]; saveOpt(); show(D); });
   $("#sq").oninput = drawSearch;
   $("#sq").onkeydown = e => { if(e.key==="Escape"){ $("#sres").classList.add("hidden"); }
