@@ -41,6 +41,9 @@ ANI_T = re.compile(r"코스프레|코스어|cosplay|피규어|굿즈|언박싱|�
 def not_scene(v, w):
     """v = 기록 한 줄, w = 작품. 수요에서 뺄 영상이면 True"""
     t, ch = v[1] or "", v[2] or ""
+    nn = norm(w["n"])  # 작품 이름이 채널 이름에 있으면 공식·전용 채널이지 남의 클립이 아니다 (별난 가족 byulna, 로보카폴리 TV)
+    if len(nn) >= 3 and nn in norm(ch):
+        return True
     if KIN_CH.search(ch) or (EVENT_CH.search(ch) and not FILM_CH.search(ch)):
         return True
     for nm in {w["n"], w.get("tag") or "", re.split(r"[:：]", w["n"])[0]}:  # 작품 이름 속 낱말은 빼고 본다: 굿뉴스 ≠ 뉴스
@@ -57,6 +60,16 @@ def now_min():
 
 def kst(m):
     return datetime.fromtimestamp(m * 60, KST)
+
+
+def quota_day():
+    """유튜브 키의 하루 = 태평양 시간 자정 기준(한국 오후 4~5시에 초기화). 한국 날짜로 세면 그 사이 몫이 겹쳐 실제 한도를 넘는다 (11-06 quotaExceeded)"""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("America/Los_Angeles")
+    except Exception:
+        tz = timezone(timedelta(hours=-8))
+    return datetime.now(tz).date().isoformat()
 
 
 def norm(s):
@@ -487,6 +500,8 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
         j = J[w["i"]]
         rec = st["works"].get(w["i"])
         j["at"] = kst(rec["at"]).strftime("%m-%d %H:%M") if rec else None
+        if rec:
+            rec["s"] = j["st"]  # 다음 회차에 다시 잴 주기를 정할 때 쓴다
         j["risk"], j["riskwhy"] = risk_of(w, [v[2] for v in (rec or {}).get("v", [])] + (rec or {}).get("off", []))
         o = (st.get("ott") or {}).get(w["i"])
         if o:
@@ -581,7 +596,7 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
             "actors": act, "cal": cal, "actors_at": (st.get("actors") or {}).get("at"),
             "gyeol": gy, "seasons": seas, "channels": chans,
             "scanned": sum(1 for w in works if w["i"] in st["works"]), "total": len(works),
-            "units": st["units"].get(today.isoformat(), 0)}
+            "units": st["units"].get(quota_day(), 0)}
 
 
 # ── 한 번 돌기 ─────────────────────────────────────────
@@ -660,7 +675,12 @@ def main():
     extra, ids = auto_works(st.get("actors"), base + dw)
     works = base + dw + extra
     order = {True: 0, "disc": 2}  # 같은 때면 배우 타이밍(때가 있음) → 고른 작품 → 자동 발굴
-    stale = sorted((w for w in works if a.all or now - st["works"].get(w["i"], {}).get("at", 0) >= RUN["rescan_hours"] * 60),
+    def due(w):  # 수요가 약한 자동 발굴 작품은 주 1회만 다시 잰다 (키·시간 아끼기)
+        r = st["works"].get(w["i"], {})
+        low = w.get("auto") == "disc" and r.get("s") in ("쇼츠 거의 없음", "수요 약함")
+        return now - r.get("at", 0) >= (RUN.get("rescan_low_hours", 168) if low else RUN["rescan_hours"]) * 60
+    qday = quota_day()
+    stale = sorted((w for w in works if a.all or due(w)),
                    key=lambda w: (st["works"].get(w["i"], {}).get("at", 0), order.get(w.get("auto"), 1)))
     if a.limit:
         stale = stale[:a.limit]
@@ -674,10 +694,10 @@ def main():
         if time.time() - t0 > a.minutes * 60:
             log("시간이 다 돼서 나머지는 다음 회차에")
             break
-        if mode == "api" and st["units"].get(today, 0) + 202 > 6000:
+        if mode == "api" and st["units"].get(qday, 0) + 202 > 6000:
             log("오늘 API 검색 몫(6,000유닛)을 다 씀 → 다음 회차에")
             break
-        if st["units"].get(today, 0) >= RUN["unit_budget"]:
+        if st["units"].get(qday, 0) >= RUN["unit_budget"]:
             log(f"오늘 유튜브 키 몫({RUN['unit_budget']:,}유닛)을 다 씀 → 내일 이어서 (오늘의 흐름·채널 레이더 몫 남겨 둠)")
             break
         try:
@@ -696,7 +716,7 @@ def main():
                 log("유튜브 키 쿼터 다 씀"); break
             continue
         st["works"][w["i"]] = rec
-        st["units"][today] = st["units"].get(today, 0) + rec["units"]
+        st["units"][qday] = st["units"].get(qday, 0) + rec["units"]
         done += 1
         j = judge(w, rec, now_min())
         log(f"  {w['n']}: {j['st']} · 100만+ {j.get('n100', 0)} · 최근60일 50만+ {j.get('r60big', 0)} · 확인 {len(rec['v'])}/{rec['seen']}")
@@ -722,7 +742,7 @@ def main():
                        (os.path.join(a.out, "status.json"), json.dumps({"at": data["at"], "mode": note, "done": done,
                                                                          "scanned": data["scanned"], "total": data["total"],
                                                                          "errors": len(st["err"]), "errors_today": sum(e.startswith(today) for e in st["err"]),
-                                                                         "units_today": st["units"].get(today, 0)}, ensure_ascii=False))):
+                                                                         "units_today": st["units"].get(qday, 0)}, ensure_ascii=False))):
         with open(path + ".tmp", "w", encoding="utf-8") as f:
             f.write(body)
         os.replace(path + ".tmp", path)

@@ -14,7 +14,7 @@
     "round_minutes": 30,
     "loop_minutes": 330,
     "per_round": 150,
-    "rescan_hours": 24,
+    "rescan_hours": 24, "rescan_low_hours": 168,
     "unit_budget": 5000,
     "watch_max": 300,
     "sleep_sec": 1.2
@@ -75,7 +75,7 @@
   "actors": {"after_days": 45, "before_days": 45, "leads": 3, "films_per_actor": 5, "refresh_hours": 24, "rescan_hours": 24,
              "_설명": "곧 시작(before_days 안)·시작한 지 after_days 안인 드라마(TV·OTT)·영화의 주연 leads명, 배우마다 지난 한국 영화 films_per_actor편을 하루 한 번 새로 찾아 rescan_hours마다 잰다"},
   "discover": {"from_year": 1990, "ott_from_year": 2016, "refresh_days": 30, "rescreen_days": 60, "screen_minutes": 8,
-               "min_top": 500000, "max_works": 2500, "anime_from_year": 1960, "anime_minutes": 6, "drama_from_year": 1980, "drama_minutes": 3, "anime_trees": ["일본의 텔레비전 애니메이션", "대한민국의 텔레비전 애니메이션", "미국의 텔레비전 애니메이션", "일본의 오리지널 애니메이션"],
+               "min_top": 500000, "max_works": 5000, "skip": ["체포하겠어", "너에게 닿기를", "꿈빛 파티시엘", "하늬바람", "데드풀", "별난 가족", "아이들..."], "anime_from_year": 1960, "anime_minutes": 6, "drama_from_year": 1980, "drama_minutes": 3, "anime_trees": ["일본의 텔레비전 애니메이션", "대한민국의 텔레비전 애니메이션", "미국의 텔레비전 애니메이션", "일본의 오리지널 애니메이션"],
                "_설명": "위키백과 한국 영화(from_year~작년)·OTT 오리지널 드라마를 후보로, #제목 쇼츠 화면에서 min_top 넘는 쇼츠가 있으면 작품으로 올림(최대 max_works)"},
   "entry": {"comp_days": 30, "surge_days": 7, "w_channel": 5, "w_post": 3, "w_surge": 10,
             "blue_max_ch": 1, "blue_max_posts": 3, "go_max_comp": 35, "avoid_comp": 60,

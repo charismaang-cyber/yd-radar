@@ -21,6 +21,7 @@ ALL_CAP = C.get("all_cap", 7000)  # 옛 방식까지 합쳐 이만큼 쓰면 멈
 THREADS = C.get("rss_threads", 4)
 FILTER_PER_ROUND, TAB_PER_ROUND = C.get("filter_per_round", 30), C.get("tab_per_round", 40)
 CAT_DAYS = C.get("cat_refresh_days", 30)
+MAX_MB = C.get("max_mb", 45)
 SP_MONTH = "EgYIBBABGAE%3D"  # 이번 달 + 4분 미만 (쇼츠 종류 필터는 날짜가 안 듣는다 — 11-05 시험)
 OFF = re.compile(scan.OFFICIAL.pattern + r"|소니픽쳐스|Sony|왓챠|watcha", re.I)
 SEC = re.compile(r"^==+\s*(출연|출연진|배역|등장\s*인물|캐스트|캐스팅|주요\s*인물)\s*==+\s*$(.*?)(?=^==[^=]|\Z)", re.M | re.S)
@@ -510,18 +511,30 @@ def tab_round(L, st, key, now, today, deadline):
     log(f"채널 탭 첫 등록 {done}곳 · 영상 {n}편 → 작품 {hit}편 (남은 {left}곳)")
 
 
-def prune(L, now):
-    """장부가 커지지 않게: 40일 안 영상 + 작품마다 조회수 큰 60편만"""
+def fit(L, now, pw):
+    """깃허브는 100MB 넘는 파일을 안 받는다(올리기가 통째로 실패해 화면까지 멈춤) → 크면 작품마다 남기는 편수를 줄인다"""
+    body = json.dumps(lock.seal(L, pw))
+    for top, days in ((40, 40), (25, 30), (15, 20)):
+        if len(body) <= MAX_MB * 1e6:
+            break
+        log(f"장부 {len(body) / 1e6:.1f}MB → 작품마다 {top}편·{days}일로 줄임")
+        prune(L, now, top, days)
+        body = json.dumps(lock.seal(L, pw))
+    return body
+
+
+def prune(L, now, top=60, days=40):
+    """장부가 커지지 않게: days 일 안 영상 + 작품마다 조회수 큰 top 편만"""
     by = defaultdict(list)
     for i, r in L["v"].items():
         by[r[K]].append(i)
     for k, ids in by.items():
-        if len(ids) <= 60:
+        if len(ids) <= top:
             continue
         ids.sort(key=lambda i: -L["v"][i][VIEWS])
-        for i in ids[60:]:
+        for i in ids[top:]:
             a = age_days(L["v"][i][PUB], now)
-            if a is None or a > 40:
+            if a is None or a > days:
                 del L["v"][i]
     for c in list(L["dead"]):
         if now - L["dead"][c] > 90 * 1440:
@@ -600,7 +613,7 @@ def cards(L, st, data, works, wk):
                        "ser": ([L["cat"][g]["n"] for g in group if g in L["cat"]][:6] if len(group) > 1 else None),
                        "nc": ({"n": len(nc), "top": max(v[4] for v in nc)} if nc else None),
                        "pan": ({"n": len(pan), "top": max(r[VIEWS] for _, r in pan), "inc": pan_in} if pan else None)}
-    today = kst(now).date().isoformat()
+    today = scan.quota_day()
     active = sum(1 for x in ch.values() if x.get("r"))
     stat = {"at": kst(now).strftime("%Y-%m-%d %H:%M"), "ch": len(ch), "film": sum(1 for x in ch.values() if x.get("n", 0) >= 4 and film(x) and not person(x)), "person": sum(1 for x in ch.values() if person(x)), "read": active,
             "vids": len(L["v"]), "cat": len(L["cat"]), "cat_todo": len(L["cat_todo"]), "units": L["units"].get(today, 0), "old_left": L.get("old_left", 0),
@@ -651,7 +664,7 @@ def main():
             inp = read_box(inp_p, pw)
         except Exception as e:
             log(f"검색 넘겨받기 못 풂 ({e})")
-    now, today = now_min(), kst(now_min()).date().isoformat()
+    now, today = now_min(), scan.quota_day()
     ready = ensure_catalog(L, st, works, t0 + min(a.minutes, 7) * 60)
     log(f"작품 목록 {len(L['cat'])}편 · 주연 받을 것 {len(L['cat_todo'])}편")
     if ready:
@@ -678,7 +691,7 @@ def main():
     else:
         L.pop("v_ch", None)
         log("작품 목록을 다 못 받음 → 다음 회차에 이어서")
-    write(lp, json.dumps(lock.seal(L, pw)))  # 카드를 만들다 실패해도 이번 회차에 모은 건 남게 먼저 저장
+    write(lp, fit(L, now, pw))  # 카드를 만들다 실패해도 이번 회차에 모은 건 남게 먼저 저장
     if ready and os.path.exists(inp_p):
         os.remove(inp_p)
     if ready:

@@ -66,6 +66,8 @@ def _anime_make(t, cats):
     """위키 문서 하나 → 후보. 틀·목록·성인물은 None"""
     if re.match(r"(틀|위키백과|포털|사용자|모듈|도움말|파일|분류):", t) or ANI_DOC_SKIP.search(t) or any(ANI_CAT_SKIP.search(c) for c in cats):
         return None
+    if re.search(r"코믹스|미국의 만화", " ".join(cats)) and "애니메이션" not in " ".join(cats):
+        return None  # 만화책 문서 (데드풀)
     ys = [int(m.group(1)) for c in cats for m in [re.match(r"(\d{4})년 (?:컴퓨터 )?애니메이션", c)] if m] \
         or [int(m.group(1)) for c in cats for m in [re.match(r"(\d{4})년 (?:시작한|만화)", c)] if m]
     y, s, n = min(ys) if ys else 0, " ".join(cats), actors.short(t)
@@ -341,7 +343,8 @@ def fill_dist(st, keys, log, limit=100):
 def works(st, cfg):
     """큰 쇼츠가 있는 후보 → 작품 목록 (min_top 넘는 것 중 조회수 큰 순 max_works 편)"""
     d = st.get("disc") or {}
-    ok = [(k, s[2]) for k, s in d.get("seen", {}).items() if s[2] >= cfg["min_top"] and k in d.get("cand", {})]
+    skip = set(cfg.get("skip") or [])  # 이름만 같은 다른 것(노래·밈)으로 드러난 작품
+    ok = [(k, s[2]) for k, s in d.get("seen", {}).items() if s[2] >= cfg["min_top"] and k in d.get("cand", {}) and d["cand"][k]["n"] not in skip]
     ok.sort(key=lambda x: -x[1])
     out = []
     plain = lambda n: re.sub(r"[^0-9a-z가-힣]", "", n.lower())
@@ -351,6 +354,8 @@ def works(st, cfg):
         tag = tag_of(c["n"])
         ani = c.get("k") == "애니"
         who = ["애니"] if ani and (c.get("amb") or plain(c["n"]) in films) else c.get("cast", [])[:2] if c.get("amb") else []
+        if not who and not re.search(r"[가-힣]", c["n"]):  # 영어·숫자 이름(Free!·4:30)은 낱말이 흔해 엉뚱한 영상이 붙는다 → 갈래 낱말도 보여야 인정
+            who = [{"애니": "애니", "방송": "드라마", "OTT": "드라마"}.get(c.get("k"), "영화")]
         q = "#" + tag + "".join(" " + a for a in who)  # 흔한 제목은 배우 이름(애니는 '애니')도 보여야 인정
         out.append({"key": k, "n": c["n"], "g": c["g"], "k": c["k"], "d": c["d"] or d.get("dist", {}).get(k, "?"),
                     "y": str(c["y"] or ""), "tag": tag, "q": q, "top0": top})
