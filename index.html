@@ -339,7 +339,7 @@ td .w{font-weight:700}
     <div class="sec-h" id="cal"><div><span class="eyebrow">RELEASE CALENDAR</span><h2>신작 달력<em id="cCal"></em></h2></div><div class="at" id="calAt">신작이거나, 보고 또 보는 명작이거나 — 둘 중 하나가 타율이 높다</div></div>
     <section class="card panel"><div class="bar" id="calChips"></div><div id="calList"></div></section>
 
-    <div class="sec-h" id="map"><div><span class="eyebrow">GYEOL MAP</span><h2>결 지도</h2></div><div class="at">라필: 결 맞추기가 90% · 같은 결 3편 이상 정해 두고 시작</div></div>
+    <div class="sec-h" id="map"><div><span class="eyebrow">GYEOL MAP</span><h2>결 지도</h2></div><div class="at">진입하기 좋은 순서(GO → 차선 → 보류 → 피함) · 라필: 결 맞추기가 90%, 같은 결 3편 이상 정해 두고 시작</div></div>
     <section class="card panel sparkle">
       <div class="bar" id="sideChips"></div>
       <div class="gmap" id="gmap"></div>
@@ -673,17 +673,20 @@ const SIDES = [["all","전체"],["남","남자향"],["여","여자향"],["공통
 const gOpen = {};
 function drawMap(){
   $("#sideChips").innerHTML = SIDES.map(([k,n]) => `<button class="chip ${opt.side===k?"on":""}" data-side="${k}">${n}</button>`).join("")
-    + `<button class="chip ${opt.good?"on":""}" id="goodOnly">들어갈 만한 것만</button>`;
+    + `<button class="chip ${opt.good?"on":""}" id="goodOnly" title="진입 판정 GO·차선만">들어갈 만한 것만</button>`;
   document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { opt.side = b.dataset.side; saveOpt(); drawMap(); });
   $("#goodOnly").onclick = () => { opt.good = !opt.good; saveOpt(); drawMap(); };
-  $("#gmap").innerHTML = D.gyeol.filter(g => opt.side==="all" || g.side===opt.side).map(g => {
-    let ids = g.ids.map(i=>W[i]).filter(w => w && vis(w) && (!opt.good || ["꿀통","심정지 재진입","후보"].includes(w.st)));
-    if(!ids.length) return "";
+  // 진입하기 좋은 순서: 결 안에서는 GO → 차선 → 보류 → 피함(같은 판정은 점수 높은 순), 결 카드는 GO 많은 결부터
+  const cards = D.gyeol.filter(g => opt.side==="all" || g.side===opt.side).map(g => {
+    const all = g.ids.map(i=>W[i]).filter(w => w && vis(w)).sort(byEntry), n = v => all.filter(w => enOf(w).v===v).length;
+    return {g, all, ids: opt.good ? all.filter(w => ["GO","차선"].includes(enOf(w).v)) : all, go: n("GO"), cha: n("차선"), bo: n("보류"), pi: n("피함"), best: all.length ? enOf(all[0]).s ?? -999 : -999};
+  }).filter(c => c.ids.length).sort((a,b) => b.go-a.go || b.cha-a.cha || b.best-a.best);
+  $("#gmap").innerHTML = cards.map(({g, ids, go, cha, bo, pi}) => {
     const lim = gOpen[g.k] ? 99 : 6;
     return `<div class="gc"><h4>${esc(g.k)} <span class="badge">${g.side}</span>${g.pass_>=3?'<span class="tg s-honey" title="라필: 같은 결 3편 이상 → 결 채널로 시작 가능">결 채널 가능</span>':""}</h4>
-      <div class="d">${esc(g.d)}<br>들어가기 좋은 것 ${g.pass_}편 · 후보 ${g.cand}편</div>
+      <div class="d">${esc(g.d)}<br>진입 GO ${go}편 · 차선 ${cha}편 · 보류 ${bo}편 · 피함 ${pi}편</div>
       ${ids.slice(0,lim).map((w,k) => `<div class="gi" data-w="${esc(w.i)}"><div class="no">${k+1}</div>${thumb((w.top||{}).id)}<div style="min-width:0">
-        <div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:3px 0">${stTag(w.st)} ${rkTag(w)}</div>
+        <div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:3px 0">${enTag(w)} ${stTag(w.st)} ${rkTag(w)}</div>
         <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0}${w.gap!=null?` · 마지막 ${w.gap}일 전`:""}</div></div></div>`).join("")}
       ${ids.length>lim?`<button class="mo" data-g="${esc(g.k)}">${ids.length-lim}편 더 보기</button>`:""}</div>`; }).join("");
   document.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { gOpen[b.dataset.g] = 1; drawMap(); });
