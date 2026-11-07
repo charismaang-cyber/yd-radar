@@ -32,6 +32,11 @@ OFFICIAL = re.compile(r"(SBS|KBS|MBC|tvN|JTBC|TV\s?CHOSUN|TV조선|채널A|MBN|E
 # 11-05 썸네일로 분류한 표본 200개로 시험: 목록의 비장면 24% → 약 10%. 다른 작품이 섞인 영상·이름만 같은 영상은 못 잡는다.
 # «제목에 작품명 없음 + 좁은 채널» 은 12개 중 3개만 맞아 버렸다. 인성(조인성)·화보(영화보러)·캐스팅·공항은 멀쩡한 제목에 걸려서 뺐다.
 KIN_CH = re.compile(r"에나 ?클립|바이포엠|BY4M|메리크리스마스|마인드마크|EBS|열린공감", re.I)  # 배급사 관계 채널
+# 권리자·제작사·출연자가 직접 운영하는 채널 — 지워질 일이 없으니 «남의 영상이 살아남았다»는 신호가 아니다 (11-07 핑크퐁 공식 동요 3,233만이 가짜 GO 를 냄).
+# 이름이 작품·권리사와 안 겹쳐서 own_channel 의 이름 검사로 못 잡는 곳만 적는다. 낱말 official 하나로는 안 잡는다: 드감_Official·1MinBiopic Official 은 남의 클립 채널.
+OWN_CH = re.compile(r"공식 ?(?:채널|계정|유튜브)|公式|핑크퐁|pinkfong|오콘키즈|티니핑|teenieping|로티프렌즈|메탈카드봇|미니특공대tv|키즈팡|브레드tv|브라보키즈|대원미디어|박태준만화회사|짤툰|"
+                    r"cherry toon|maca & roni|코미디티비|comedy tv|pbs kids|cartoon network|cgv|네이버 ?now|shaun the sheep|robot trains|pucca|sll_official|godin media|가딘미디어|polandball official|iu official|노현희tv", re.I)
+NAME_SPLIT = re.compile(r"[\s:：\-–|·・()（）\[\]!,.&/]+")
 EVENT_T = re.compile(r"인터뷰|시사회|무대인사|제작발표|오픈토크|레드카펫|실물|직캠|쇼케이스|\bGV\b|뒤풀이|수상소감|시상식|청룡영화|부산국제영화제|BIFF|예고편|티저|최신 ?근황|배우 근황", re.I)
 EVENT_CH = re.compile(r"뉴스|news|ytn|star\b|스타|연예|셀럽|아이닷컴|top ?daily|톱데일리|k-culture|일상|비하인드 아카이빙|mtn", re.I)
 FILM_CH = re.compile(r"무비|영화|씬|시네|드라마|컷|movie|cine|film|애니|만화|anime|toon", re.I)  # 이름에 영화 낱말이 있으면 장면 채널 (무비맛스타·스타한컷)
@@ -41,11 +46,32 @@ FILM_CH = re.compile(r"무비|영화|씬|시네|드라마|컷|movie|cine|film|�
 ANI_T = re.compile(r"코스프레|코스어|cosplay|피규어|굿즈|언박싱|개봉기|팩 ?개봉|카드 ?(?:개봉|깡|팩)|레고|뜨개|그리기|만들기|클레이|가챠|성우|커버|cover|챌린지|challenge|댄스|안무|\bOST\b|주제가|오프닝|엔딩곡|노래방|공략|콘서트|팬미팅|실사|현실판|뮤지컬|라이브|겟레디|성지순례|렌즈|스티커|종이구관|페이퍼|paper|diy|메이크업|sing-along", re.I)
 
 
+def own_channel(ch, w):
+    """이 작품의 권리자 쪽 채널인가. 11-07 전체 기록 시험: 100만+ 9,792편 중 158편(35곳)이 새로 빠졌고 채널을 눈으로 보니 전부 공식·비장면.
+       10만 안쪽에 팬 채널 몇 곳이 섞인다(신비아파트 지식백과 11만·디지몬 백과사전) — 큰 숫자에 영향 없어 둔다."""
+    if OWN_CH.search(ch):
+        return True
+    whole = norm(ch)
+    head = norm(re.sub(r"[(（\[].*", "", ch))
+    for p in re.split(r"[,/·]", w.get("d") or ""):  # 권리사 이름이 곧 채널 이름 (콘텐츠 지오·바른손이앤에이). 3글자 이하는 NEW·OTT 가 걸려서 안 본다
+        nd = norm(p)
+        if len(nd) >= 4 and (nd in whole or (len(head) >= 4 and head in nd)):
+            return True
+    if w.get("k") == "애니":  # 캐릭터 애니는 채널 첫 낱말 = 작품 이름 낱말 (뽀로로(Pororo)·주니토니 - 인기 동요). 영화는 «미스터 ○○»처럼 흔한 낱말이 걸려서 안 본다
+        c0 = norm(NAME_SPLIT.split(ch.strip())[0])
+        enough = len(c0) >= 5 or (len(c0) >= 3 and re.search(r"[가-힣]", c0))
+        if enough and not c0.endswith("의") and c0 in [norm(x) for x in NAME_SPLIT.split(w["n"]) if x]:  # «진격의 TMI» 같은 조사 낱말 제외
+            return True
+    return False
+
+
 def not_scene(v, w):
     """v = 기록 한 줄, w = 작품. 수요에서 뺄 영상이면 True"""
     t, ch = v[1] or "", v[2] or ""
     nn = norm(w["n"])  # 작품 이름이 채널 이름에 있으면 공식·전용 채널이지 남의 클립이 아니다 (별난 가족 byulna, 로보카폴리 TV)
     if len(nn) >= 3 and nn in norm(ch):
+        return True
+    if own_channel(ch, w):
         return True
     if KIN_CH.search(ch) or (EVENT_CH.search(ch) and not FILM_CH.search(ch)):
         return True
@@ -298,7 +324,7 @@ def judge(w, rec, now):
     hv = rec["ht"][0]
     if hv is not None: why.append(f"#{w['tag']} 동영상 {hv:,}개")
     cut = sum(v[4] >= R["big"] for v in third) - n100
-    if cut: why.append(f"행사·관계사 영상 100만+ {cut}편은 수요에서 뺌")
+    if cut: why.append(f"공식·행사·관계사 영상 100만+ {cut}편은 수요에서 뺌")
     pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
     return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
             "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
