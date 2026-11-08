@@ -39,6 +39,25 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # 장면 판정(scene.py) 그림 AI 모델 307MB — 한 번 받아 캐시에 넣고 다음부터 꺼내 씀. 실행이 중간에 끊겨도 남게 받자마자 넣는다
+      - name: 장면 판정 모델 꺼내기
+        id: scenemodel
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/yd-scene
+          key: yd-scene-clip-l14-q8-c3077901
+      - name: 장면 판정 모델 받기
+        if: steps.scenemodel.outputs.cache-hit != 'true'
+        continue-on-error: true  # 못 받으면 옛 판정만 쓰고 레이더는 그대로 돈다
+        run: python -c "import scene; scene.ensure_model()"
+      - name: 장면 판정 모델 캐시에 넣기
+        if: steps.scenemodel.outputs.cache-hit != 'true'
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/yd-scene
+          key: yd-scene-clip-l14-q8-c3077901
+
       - name: 30분마다 재고 올리기 (한 번에 5시간 반)
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
@@ -65,10 +84,10 @@ jobs:
           end=$(( $(date +%s) + 330 * 60 ))
           while :; do
             t0=$(date +%s)
-            python scan.py --out site --minutes 22 || echo "재기 실패 — 다음 회차에 다시"
+            python scan.py --out site --minutes 22 --scene-minutes 5 || echo "재기 실패 — 다음 회차에 다시"
             python ledger.py --out site --minutes 8 || echo "장부 실패 — 옛 숫자와 상관없음"
             publish || echo "올리기 실패 — 다음 회차에 다시"
-            # 한 회차가 길면 48분(거르기 8분 + 재기 22분 + 하루 한 번 배우 일정 + 달마다 후보 + 장부 8분) → 6시간 끊김 전에 여유 있게 멈춤
+            # 한 회차가 길면 53분(거르기 8분 + 재기 22분 + 장면 판정 5분 + 하루 한 번 배우 일정 + 달마다 후보 + 장부 8분) → 6시간 끊김 전에 여유 있게 멈춤
             [ $(( $(date +%s) + 45 * 60 )) -lt "$end" ] || break
             left=$(( t0 + 30 * 60 - $(date +%s) ))
             [ "$left" -gt 60 ] && sleep "$left"

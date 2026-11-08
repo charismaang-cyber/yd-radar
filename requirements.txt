@@ -1,1 +1,5 @@
 cryptography
+# scene.py (image AI scene check)
+onnxruntime
+numpy
+pillow

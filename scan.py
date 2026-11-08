@@ -8,7 +8,7 @@
 import os, re, sys, json, math, time, argparse, urllib.request
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone, timedelta
-import yt, lock, actors, discover, ott
+import yt, lock, actors, discover, ott, scene
 
 if sys.stdout:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -21,6 +21,9 @@ MERGE = {}
 # 비어 있으면(첫 회차·장부 실패·ledger.py 안에서 부를 때) 채널로 거르지 않는다.
 # 11-07 채점 30편: 판정 일치 21 → 24편. 틀린 100만+ 33개 중 16개가 빠지고, 맞는 99개 중 9개도 같이 빠진다(장부가 아직 4편 미만 본 채널). 영화 채널이 올린 행사 영상은 못 거른다.
 CLIP_CH = set()
+# 장면 판정(scene.py): 영상 id → [장면 점수, 장면아님 0/1, 채널id]. state.enc.json 의 scene 에 이어 쌓고 회차마다 새 큰 영상만 그림으로 본다.
+# 11-08 설계자 수요 620만이 강동원 예능 화면 → 장면 아닌 영상은 수요·경쟁에서 뺀다. 장부(ledger.py)가 judge 를 부를 땐 비어 있어 안 거른다.
+SCENE, BAD_CH = {}, set()
 KST = timezone(timedelta(hours=9))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
 R, RUN, E = CFG["rule"], CFG["run"], CFG["entry"]
@@ -41,13 +44,14 @@ KIN_CH = re.compile(r"에나 ?클립|바이포엠|BY4M|메리크리스마스|마
 OWN_CH = re.compile(r"공식 ?(?:채널|계정|유튜브)|公式|핑크퐁|pinkfong|오콘키즈|티니핑|teenieping|로티프렌즈|메탈카드봇|미니특공대tv|키즈팡|브레드tv|브라보키즈|대원미디어|박태준만화회사|짤툰|"
                     r"cherry toon|maca & roni|코미디티비|comedy tv|pbs kids|cartoon network|cgv|네이버 ?now|shaun the sheep|robot trains|pucca|sll_official|godin media|가딘미디어|polandball official|iu official|노현희tv", re.I)
 NAME_SPLIT = re.compile(r"[\s:：\-–|·・()（）\[\]!,.&/]+")
-EVENT_T = re.compile(r"인터뷰|시사회|무대인사|제작발표|오픈토크|레드카펫|실물|직캠|쇼케이스|\bGV\b|뒤풀이|수상소감|시상식|청룡영화|부산국제영화제|BIFF|예고편|티저|최신 ?근황|배우 근황", re.I)
+EVENT_T = re.compile(r"인터뷰|시사회|무대인사|제작발표|오픈토크|레드카펫|실물|직캠|쇼케이스|\bGV\b|뒤풀이|수상소감|시상식|청룡영화|부산국제영화제|BIFF|예고편|티저|최신 ?근황|배우 근황|메이킹|awards", re.I)
 EVENT_CH = re.compile(r"뉴스|news|ytn|star\b|스타|연예|셀럽|아이닷컴|top ?daily|톱데일리|k-culture|일상|비하인드 아카이빙|mtn", re.I)
+# 11-08 메이킹·awards 추가 (채점/장면: 어하루 메이킹·AAA 시상식이 장면으로 세였음). «근황» 만 쓰는 장면 쇼츠 제목(«요즘 장첸 근황»)이 있어 근황은 그대로 좁게 둠
 FILM_CH = re.compile(r"무비|영화|씬|시네|드라마|컷|movie|cine|film|애니|만화|anime|toon", re.I)  # 이름에 영화 낱말이 있으면 장면 채널 (무비맛스타·스타한컷)
 
 
 # 애니만: 포켓몬·디즈니·케데헌 숫자에 코스프레·카드·만들기·노래가 많이 섞인다(10-13 조사)
-ANI_T = re.compile(r"코스프레|코스어|cosplay|피규어|굿즈|언박싱|개봉기|팩 ?개봉|카드 ?(?:개봉|깡|팩)|레고|뜨개|그리기|만들기|클레이|가챠|성우|커버|cover|챌린지|challenge|댄스|안무|\bOST\b|주제가|오프닝|엔딩곡|노래방|공략|콘서트|팬미팅|실사|현실판|뮤지컬|라이브|겟레디|성지순례|렌즈|스티커|종이구관|페이퍼|paper|diy|메이크업|sing-along", re.I)
+ANI_T = re.compile(r"코스프레|코스어|cosplay|피규어|굿즈|언박싱|개봉기|팩 ?개봉|카드 ?(?:개봉|깡|팩)|레고|뜨개|그리기|만들기|클레이|가챠|성우|커버|cover|챌린지|challenge|댄스|안무|\bOST\b|주제가|오프닝|엔딩곡|노래방|공략|콘서트|팬미팅|실사|현실판|뮤지컬|라이브|겟레디|성지순례|렌즈|스티커|종이구관|페이퍼|paper|diy|메이크업|sing-along|블라인드 ?백|blind ?bag", re.I)
 
 
 def own_channel(ch, w):
@@ -295,6 +299,9 @@ def judge(w, rec, now):
         have = {v[0] for v in rec["v"]}  # 공식 채널로 뺀 영상이 장부로 되살아나지 않게 v[6] 인 것까지 본다
         third = sorted(third + [v for v in MERGE[w["i"]] if v[0] not in have], key=lambda v: -v[4])
     vs = [v[:7] + [age_days(v[5], now)] for v in third if not not_scene(v, w)]  # 제3자의 장면만, 끝에 며칠 전인지
+    sc = [v for v in vs if scene.is_out(v, SCENE, BAD_CH)]  # 그림으로 본 장면 아닌 영상(행사·예능·팬 영상)·그런 영상만 올리는 채널
+    if sc:
+        vs = [v for v in vs if not scene.is_out(v, SCENE, BAD_CH)]
     is_clip = lambda v: not CLIP_CH or v[3] in CLIP_CH
     big = [v for v in vs if v[4] >= R["big"] and is_clip(v)]
     alive = [v for v in big if v[7] is not None and v[7] >= R["alive_days"]]
@@ -328,8 +335,10 @@ def judge(w, rec, now):
     if gap is not None: why.append(f"마지막 업로드 {gap}일 전")
     hv = rec["ht"][0]
     if hv is not None: why.append(f"#{w['tag']} 동영상 {hv:,}개")
-    cut = sum(v[4] >= R["big"] for v in third) - n100
+    scbig = sum(v[4] >= R["big"] for v in sc)
+    cut = sum(v[4] >= R["big"] for v in third) - n100 - scbig
     if cut: why.append(f"공식·행사·관계사·영화 채널 아닌 곳의 100만+ {cut}편은 수요에서 뺌")
+    if scbig: why.append(f"그림으로 보니 장면이 아닌(행사·예능·팬 영상) 100만+ {scbig}편은 수요에서 뺌")
     pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
     return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
             "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
@@ -338,7 +347,48 @@ def judge(w, rec, now):
             "hot": [pv(v) for v in hot[:4]], "vids": [pv(v) for v in vs[:8]], "ht": rec["ht"],
             # 작품 창 «최근 30일 올라온 쇼츠» — vids 는 전체 기간 상위 8편이라 오래된 100만+ 에 가려 요즘 올린 쇼츠가 안 보인다 (11-08 엉클 8위 123만 ↔ 레몬쇼츠 55만)
             "recent": [pv(v) for v in sorted((v for v in vs if v[7] is not None and v[7] <= E["comp_days"]), key=lambda v: -v[4])[:8]],
-            "beginner": hv is not None and hv < R["hashtag_beginner"], "off": rec.get("off", [])}
+            "beginner": hv is not None and hv < R["hashtag_beginner"], "off": rec.get("off", []),
+            # 작품 창 «수요에서 뺀 영상» — 그림으로 장면이 아니라고 본 것, 잘못 뺐는지 사람이 볼 수 있게 조회수 상위 8편
+            **({"noscene": {"n": len(sc), "vids": [dict(pv(v), s=(SCENE.get(v[0]) or [None])[0], ch_out=not (SCENE.get(v[0]) or [0, 0])[1]) for v in sc[:8]]}} if sc else {})}
+
+
+def scene_step(st, works, now, minutes, log):
+    """수요·경쟁에 쓰이는 큰 영상(50만+, 또는 사흘 안 10만+) 중 아직 그림으로 안 본 것을 조회수 큰 순서로 minutes 동안 본다"""
+    todo, keep = {}, set()
+    for w in works:
+        rec = st["works"].get(w["i"])
+        if not rec:
+            continue
+        have = {v[0] for v in rec["v"]}
+        for v in [v for v in rec["v"] if not v[6]] + [v for v in MERGE.get(w["i"], []) if v[0] not in have]:
+            keep.add(v[0])
+            if v[0] in SCENE or v[0] in todo:
+                continue
+            age = age_days(v[5], now)
+            if (v[4] >= R["mid"] or (age is not None and age <= R["hot_days"] and v[4] >= R["hot_views"])) and not not_scene(v, w):
+                todo[v[0]] = (v, w)
+    for k in [k for k in SCENE if k not in keep]:  # 어느 작품에도 없는 영상은 지움 (다시 나오면 다시 봄)
+        del SCENE[k]
+    order = sorted(todo.values(), key=lambda x: -x[0][4])
+    new = bad = 0
+    if order and minutes > 0:
+        t0 = time.time()
+        try:
+            got = scene.score([v[0] for v, _ in order], t0 + minutes * 60, log)
+        except Exception as e:
+            got = {}
+            st.setdefault("err", []).append(f"{kst(now).date()} 장면 판정: {type(e).__name__} {e}"[:200])
+            log(f"장면 판정 못 함 → 이번엔 옛 판정만 ({type(e).__name__} {e})")
+        for v, w in order:
+            if v[0] in got:
+                b = scene.bad_of(got[v[0]], v[1], w)
+                SCENE[v[0]] = [got[v[0]], int(b), v[3]]
+                new += 1; bad += b
+        log(f"장면 판정: 새로 {new}편 본 중 장면 아님 {bad}편 · {time.time() - t0:.0f}초 · 아직 안 본 큰 영상 {len(order) - new}편")
+    BAD_CH.clear(); BAD_CH.update(scene.bad_channels(SCENE))
+    st["scene"] = SCENE
+    st["scene_left"] = len(order) - new
+    log(f"장면 판정 누적 {len(SCENE)}편 · 장면 아님 {sum(e[1] for e in SCENE.values())}편 · 통째로 뺀 채널 {len(BAD_CH)}곳")
 
 
 def compete(vs):
@@ -666,6 +716,7 @@ def main():
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--all", action="store_true", help="오래된 순서 무시하고 전부")
     ap.add_argument("--minutes", type=float, default=24, help="작품 재기에 쓸 최대 시간")
+    ap.add_argument("--scene-minutes", type=float, default=0, help="장면 판정(그림 AI)에 쓸 최대 시간 — 0 이면 옛 판정만 씀")
     a = ap.parse_args()
     pw, key = secret("RADAR_PASSWORD", "password.txt"), secret("YOUTUBE_API_KEY", "youtube_key.txt")
     if not pw or not key:
@@ -681,6 +732,8 @@ def main():
             log("지난 기록을 못 풂(비밀번호가 바뀜?) → 새로 시작")
     for k in ("works", "rss", "watch", "units"):
         st.setdefault(k, {})
+    SCENE.update(st.get("scene") or {})
+    BAD_CH.update(scene.bad_channels(SCENE))
     mp = os.path.join(a.out, "merge.enc.json")
     if os.path.exists(mp):
         try:
@@ -803,6 +856,7 @@ def main():
     st["works"] = {k: v for k, v in st["works"].items() if k in keep}
     st["units"] = dict(sorted(st["units"].items())[-10:])
     st["err"] = st["err"][-40:]
+    scene_step(st, works, now_min(), a.scene_minutes, log)
     note = "긁기" if mode == "scrape" else "API 검색 (긁기 막힘)"
     data = build(st, works, issues(base, log), note, st["err"], ids)
     for path, body in ((sp, json.dumps(lock.seal(st, pw))),
