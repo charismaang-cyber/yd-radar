@@ -689,10 +689,27 @@ function drawToday(good, avoid){
   $("#todayAvMore").onclick = () => { avN += 12; drawToday(good, avoid); };
   bind();
 }
+// 이어서 볼 연관작: 같은 결에서 지금 들어갈 만한 것(GO·차선)만 진입 판정 좋은 순(GO→차선, 점수순) — 보류·피함은 뺀다(결 지도 «들어갈 만한 것만»과 같은 기준), 위 필터(빼기·구독)도 따른다
+// (11-08 젊은이의 양지 → 연관작 맨 위가 소공녀 꿀통·피함이었음: 장부가 상태(책 기준)로만 줄 세움)
+// 결이 «기타·자동·방송 드라마» 같은 묶음이면 같은 결이 의미가 없어서, 장부가 고른 «같은 채널» 작품만 같은 순서로 다시 줄 세운다
+const LOOSE_G = g => !g || /기타|\(자동\)|방송 드라마/.test(g);
+function relOf(w){
+  const ch = {}; (w.rel||[]).forEach(r => { if(/같은 채널/.test(r.why||"")) ch[r.i] = r.why; });
+  const pool = (LOOSE_G(w.g) ? Object.keys(ch).map(i => W[i]).filter(Boolean) : D.works.filter(o => o.g===w.g)).filter(o => o.i!==w.i && vis(o));
+  const out = pool.filter(o => ["GO","차선"].includes(enOf(o).v)).sort(byEntry).slice(0,6).map(o => ({i:o.i, why:ch[o.i]||""}));
+  out.hold = pool.filter(o => enOf(o).v==="보류").length; out.skip = pool.filter(o => enOf(o).v==="피함").length;
+  return out;
+}
+function relBlock(w, hot){
+  const rs = relOf(w), loose = LOOSE_G(w.g), cut = [rs.hold ? `보류 ${rs.hold}편` : "", rs.skip ? `피함 ${rs.skip}편` : ""].filter(Boolean).join("·"), note = `${loose ? "같은 채널이 함께 올린 작품" : "같은 결"} · GO·차선만 진입 점수순${cut?` · ${cut} 뺌`:""}`;
+  const sub = `<span class="m" style="font-weight:500;color:var(--ink3)">${esc(note)}</span>`;
+  return (hot ? `<div class="rel-h">🍯 이어서 볼 연관작 ${rs.length} ${sub}</div>` : `<div class="h5">🍯 이어서 볼 연관작 ${sub}</div>`)
+    + `<div class="rels">${rs.map(relCard).join("") || `<div class="empty" style="padding:8px">${loose ? "같은 채널 쪽에" : "같은 결에"} 지금 들어갈 만한 작품(GO·차선)이 없어요</div>`}</div>`;
+}
 function relCard(r){
   const w = W[r.i]; if(!w) return "";
-  return `<button class="rl" data-w="${esc(w.i)}"><div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:4px 0">${stTag(w.st)} ${rkTag(w)}</div>
-    <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0} · ${esc(r.why)}</div></button>`;
+  return `<button class="rl" data-w="${esc(w.i)}"><div class="nm">${esc(w.n)}</div><div class="tgs" style="margin:4px 0">${enTag(w)} ${stTag(w.st)} ${rkTag(w)}</div>
+    <div class="m">남의 최고 <b>${fmt((w.top||{}).v)}</b> · 100만+ ${w.n100||0}${r.why?` · ${esc(r.why)}`:""}</div></button>`;
 }
 function drawHot(){
   const hs = D.hot.map(i=>W[i]).filter(w=>w && vis(w));
@@ -701,7 +718,7 @@ function drawHot(){
     <a class="hv" href="https://www.youtube.com/shorts/${esc(h.id)}" target="_blank" rel="noopener">${thumb(h.id)}<div style="min-width:0">
       <div class="t">🔥 ${esc(w.n)}</div><div class="m"><b>${fmt(h.v)}</b> · ${ago(h.age)}<br>${esc(h.ch)}<br>${esc(h.t).slice(0,60)}</div>
       <div class="tgs" style="margin-top:6px">${tagsOf(w)}</div></div></a>
-    <div><div class="rel-h">🍯 이어서 볼 연관작 ${w.rel.length}</div><div class="rels">${w.rel.map(relCard).join("") || '<div class="empty" style="padding:8px">같은 결·같은 채널 쪽에 들어갈 만한 작품이 아직 없어요</div>'}</div></div></div>`; }).join("")
+    <div>${relBlock(w, true)}</div></div>`; }).join("")
     : `<div class="empty">최근 3일 안에 10만 넘게 뜬 작품 쇼츠가 아직 없어요.<br>정답지 채널 ${D.channels.length}곳을 30분마다 지켜보고 있어요.</div>`;
   bind();
 }
@@ -788,7 +805,7 @@ function openW(i){
     ${w.hot&&w.hot.length?`<div class="h5">🔥 최근 3일 뜬 것</div><div class="vg">${w.hot.map(vcell).join("")}</div>`:""}
     ${(w.recent||[]).length?`<div class="h5">최근 30일 올라온 쇼츠 <span class="m" style="font-weight:500;color:var(--ink3)">${(c.n??0)>w.recent.length?`찾은 ${c.n}편 중 `:""}조회수 상위 ${w.recent.length}편</span></div><div class="vg">${w.recent.map(vcell).join("")}</div>`:""}
     <div class="h5">남이 터뜨린 쇼츠 <span class="m" style="font-weight:500;color:var(--ink3)">전체 기간 조회수 상위 8편</span></div><div class="vg">${(w.vids||[]).map(vcell).join("") || '<div class="m">아직 없음</div>'}</div>
-    ${w.rel&&w.rel.length?`<div class="h5">🍯 이어서 볼 연관작</div><div class="rels">${w.rel.map(relCard).join("")}</div>`:""}`;
+    ${relBlock(w)}`;
   $("#modal").classList.remove("hidden");
   $("#mx").onclick = closeM; bind(); mkBind(w); if(w.probe) addBind(w);
 }
