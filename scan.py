@@ -552,6 +552,12 @@ def build(st, works, iss, mode_note, errs, film_ids=None):
         o = (st.get("ott") or {}).get(w["i"])
         if o:
             j["ott"] = o["s"] if o["f"] else None
+            if o.get("kl"):
+                j["ottk"] = 1  # 키노라이츠에서 찾음 → 구독·대여 다 없으면 «볼 곳 없음»
+            if o.get("r"):
+                j["ottr"] = o["r"]  # 구독은 없고 대여·구매만 되는 곳 (키노라이츠)
+            if o.get("yt"):
+                j["otty"] = o["yt"]  # 한국영상자료원 유튜브 전편 영상 id
         if w["i"] in iss:
             j["issue"] = iss[w["i"]]
     # RSS 로 잡힌 급상승 → 작품에 붙이고, 못 알아본 건 소재 피드로
