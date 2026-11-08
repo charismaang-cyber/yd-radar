@@ -864,7 +864,10 @@ def main():
                        (os.path.join(a.out, "status.json"), json.dumps({"at": data["at"], "mode": note, "done": done,
                                                                          "scanned": data["scanned"], "total": data["total"],
                                                                          "errors": len(st["err"]), "errors_today": sum(e.startswith(today) for e in st["err"]),
-                                                                         "units_today": st["units"].get(qday, 0)}, ensure_ascii=False))):
+                                                                         "units_today": st["units"].get(qday, 0),
+                                                                         # 장면 판정 진행: 본 영상·장면 아님·아직 안 본 큰 영상·통째로 뺀 채널
+                                                                         "scene": {"seen": len(SCENE), "bad": sum(e[1] for e in SCENE.values()),
+                                                                                   "left": st.get("scene_left"), "ch": len(BAD_CH)}}, ensure_ascii=False))):
         with open(path + ".tmp", "w", encoding="utf-8") as f:
             f.write(body)
         os.replace(path + ".tmp", path)
