@@ -164,6 +164,7 @@ td .w{font-weight:700}
 .bars .rv{text-align:right;font-variant-numeric:tabular-nums}
 .cmp{font-size:11.5px;color:var(--ink2);background:var(--sky1);border-radius:10px;padding:7px 9px;line-height:1.55}
 .cmp b{color:var(--ink)}
+.vline{margin-top:10px;font-size:13px;color:var(--ink2);background:var(--sky1);border-left:3px solid var(--ink3);border-radius:10px;padding:9px 11px;line-height:1.6}.vline b{color:var(--ink)}.vline.no{border-left-color:var(--hot)}.vline.go{border-left-color:var(--honey)}.vline.wait{border-left-color:var(--cand)}.vline small{display:block;color:var(--ink3);font-size:11.5px;margin-top:3px}
 .riv{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:4px 12px;font-size:12.5px;margin-top:4px}
 .riv a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .riv span{color:var(--ink3);font-variant-numeric:tabular-nums;text-align:right}
@@ -401,6 +402,30 @@ const byEntry = (a,b) => EN_RANK[enOf(a).v]-EN_RANK[enOf(b).v] || (enOf(b).s??-9
 const demandTier = w => (w.n100||0)>=5 ? 0 : (w.n100||0)>=2 ? 1 : 2;
 const byDemand = (a,b) => demandTier(a)-demandTier(b) || EN_RANK[enOf(a).v]-EN_RANK[enOf(b).v] || ((b.ans||{}).n||0)-((a.ans||{}).n||0) || (enOf(b).s??-999)-(enOf(a).s??-999);
 const stTag = st => `<span class="tg s-${ST[st][0]}" title="${esc(ST[st][1])}">${esc(st)}</span>`;
+// 상태(라필 책)와 진입 판정(아모르)이 엇갈리면 작품 창 맨 위에 결론 한 줄 — 들어갈지는 진입 판정을 따른다 (11-08 «당신이 죽였다» 꿀통 ↔ 피함 45)
+const BOOK_GO = new Set(["꿀통","심정지 재진입"]);
+function verdictLine(w){
+  const e = enOf(w), c = w.cp || {}, st = w.st;
+  if(!st || !ST[st] || !EN[e.v] || e.v==="미확인" || BOOK_GO.has(st) === (e.v==="GO")) return "";
+  const n30 = `최근 30일에 ${c.ch??0}곳이 ${c.n??0}편을 올려`, more = [c.m30 ? `그중 최고 ${fmt(c.m30)}` : "", c.surge ? "지난주 급증" : ""].filter(Boolean).join(" · ");
+  const toGo = "30일에 올리는 곳이 1곳·3편 이하로 줄면 GO로 바뀌어요.";
+  let cls = "wait", head = "진입 판정을 따르기", body = `책 기준은 «${st}», 진입 판정은 «${e.v}»예요 (${e.why||""}).`;
+  if(BOOK_GO.has(st) && e.v==="피함"){
+    cls = "no"; head = "지금은 하지 않기";
+    body = (e.why||"").startsWith("붐빔") ? `작품은 잘 터졌지만(${st}) ${n30} 붐벼요${more?` (${more})`:""}. ${toGo}` : `작품은 잘 터졌지만(${st}) ${e.why||""}. 기다려도 바뀌지 않아요.`;
+  } else if(BOOK_GO.has(st) && e.v==="차선"){
+    head = "해도 되지만 GO 작품 다음에";
+    body = `작품은 잘 터졌지만(${st}) ${n30} 경쟁이 조금 있어요 (경쟁강도 ${c.s??"—"}/100). ${toGo}`;
+  } else if(e.v==="GO"){
+    cls = "go"; head = "들어가 볼 만함";
+    const book = st==="경쟁 중" ? `최근 60일 안에 남의 50만+ 쇼츠가 ${w.r60big??"?"}편 있어 책은 넘기라고 하지만`
+      : st==="후보" ? `책 기준으론 아직 후보(100만+ ${w.n100??0}편 · 6개월 생존 ${w.alive??0}편)지만`
+      : st==="막 뜸" ? "최근 3일 안에 남의 쇼츠가 10만+ 떠서 책은 «누가 잡는 중»으로 보지만" : `책 기준은 «${st}»이지만`;
+    body = `${book} 진입 판정은 GO예요 (${e.why||""}).`;
+  }
+  const note = `두 판정이 다르면 진입 판정(${e.v}${e.s!=null?" "+Math.round(e.s):""})을 따라요 · 책 기준 상태(${st})는 이 작품이 지금까지 얼마나 터졌는지예요`;
+  return `<div class="vline ${cls}"><b>결론: ${esc(head)}</b> — ${esc(body)}<small>${esc(note)}</small></div>`;
+}
 const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
 // 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
 const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
@@ -742,6 +767,7 @@ function openW(i){
   $("#mbody").innerHTML = `<button class="x" id="mx" aria-label="닫기">×</button>
     <h2>${esc(w.n)}</h2><div class="sub">${esc(w.y)} · ${esc(w.k)} · ${esc(w.d)} · ${esc(w.g)} · 잰 때 ${esc(w.at||"아직")}</div>
     <div class="tgs" style="margin-top:8px">${tagsOf(w)}</div>
+    ${verdictLine(w)}
     <ul class="whyl"><li>${esc(ST[w.st][1])}</li>${(w.why||[]).map(x=>`<li>${esc(x)}</li>`).join("")}<li>${esc(w.riskwhy)}</li><li>시청처: ${esc(ottLine(w))}${w.otty ? ` (<a href="https://www.youtube.com/watch?v=${esc(w.otty)}" target="_blank" rel="noopener">영상 열기</a>)` : ""}</li>${w.issue?`<li>구글 트렌드: ${esc(w.issue)}</li>`:""}${w.act?w.act.map(x=>`<li>배우 타이밍: ${esc(x)}</li>`).join(""):""}${w.off&&w.off.length?`<li>공식 채널 영상도 있음: ${w.off.map(esc).join(", ")}</li>`:""}</ul>
     <div class="kv"><div><span>남의 최고</span><b>${fmt((w.top||{}).v)}</b></div><div><span>100만+</span><b>${w.n100??"—"}편</b></div><div><span>50만+</span><b>${w.n50??"—"}편</b></div>
       <div><span>6개월 생존 100만+</span><b>${w.alive??"—"}편</b></div><div><span>최근 60일 올라온 것</span><b>${w.r60??"—"}편</b></div><div><span>그중 50만+</span><b>${w.r60big??"—"}편</b></div>
