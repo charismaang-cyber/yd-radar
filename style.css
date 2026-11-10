@@ -39,7 +39,7 @@ body::before{ /* 작은 별 */
     radial-gradient(1.1px 1.1px at 46% 34%,var(--star) 50%,transparent 51%);
 }
 a{color:inherit;text-decoration:none}
-.wrap{display:grid;grid-template-columns:240px 1fr;gap:28px;max-width:1500px;margin:0 auto;padding:20px}
+.wrap{display:grid;grid-template-columns:240px 1fr;gap:28px;max-width:1880px;margin:0 auto;padding:20px}
 .card{background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);position:relative}
 .card.sparkle::before{content:"✦";position:absolute;top:-11px;left:-9px;color:var(--star);font-size:12px}
