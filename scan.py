@@ -362,14 +362,18 @@ def scene_step(st, works, now, minutes, log):
         have = {v[0] for v in rec["v"]}
         for v in [v for v in rec["v"] if not v[6]] + [v for v in MERGE.get(w["i"], []) if v[0] not in have]:
             keep.add(v[0])
-            if v[0] in SCENE or v[0] in todo:
-                continue
+            e = SCENE.get(v[0])
+            if v[0] in todo or (e and not (e[1] and (len(e) < 4 or e[3] < scene.VER))):
+                continue  # 이미 봤고, 옛 판에서 장면 아님이던 것만 새 판으로 다시 봄
             age = age_days(v[5], now)
             if (v[4] >= R["mid"] or (age is not None and age <= R["hot_days"] and v[4] >= R["hot_views"])) and not not_scene(v, w):
                 todo[v[0]] = (v, w)
     for k in [k for k in SCENE if k not in keep]:  # 어느 작품에도 없는 영상은 지움 (다시 나오면 다시 봄)
         del SCENE[k]
     order = sorted(todo.values(), key=lambda x: -x[0][4])
+    redo = sum(v[0] in SCENE for v, _ in order)
+    if redo:
+        log(f"장면 판정 새 판(v{scene.VER}): 옛 판에서 장면 아님이던 {redo}편을 다시 봄")
     new = bad = 0
     if order and minutes > 0:
         t0 = time.time()
@@ -382,7 +386,7 @@ def scene_step(st, works, now, minutes, log):
         for v, w in order:
             if v[0] in got:
                 b = scene.bad_of(got[v[0]], v[1], w)
-                SCENE[v[0]] = [got[v[0]], int(b), v[3]]
+                SCENE[v[0]] = [got[v[0]], int(b), v[3], scene.VER]
                 new += 1; bad += b
         log(f"장면 판정: 새로 {new}편 본 중 장면 아님 {bad}편 · {time.time() - t0:.0f}초 · 아직 안 본 큰 영상 {len(order) - new}편")
     BAD_CH.clear(); BAD_CH.update(scene.bad_channels(SCENE))
