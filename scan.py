@@ -344,7 +344,7 @@ def judge(w, rec, now):
     pv = lambda v: {"id": v[0], "t": v[1], "ch": v[2], "cid": v[3], "v": v[4], "pub": v[5][:10], "age": round(v[7] or 0, 1)}
     return {"st": st, "why": why, "n100": n100, "n50": n50, "nshort": len(vs), "alive": len(alive),
             "r60": len(r60), "r60big": len(r60big), "r60ch": len({v[3] for v in r60}), "gap": gap,
-            "r60m": sum(v[4] >= R["big"] for v in r60), "cp": compete(vs),
+            "r60m": sum(v[4] >= R["big"] for v in r60), "cp": dict(compete(vs), nosc=sum(v[7] is not None and v[7] <= E["comp_days"] for v in sc)),
             "top": pv(top) if top else None, "ans": {"cid": ans[0][0][0], "ch": ans[0][0][1], "n": ans[0][1]} if ans else None,
             "hot": [pv(v) for v in hot[:4]], "vids": [pv(v) for v in vs[:8]], "ht": rec["ht"],
             # 작품 창 «최근 30일 올라온 쇼츠» — vids 는 전체 기간 상위 8편이라 오래된 100만+ 에 가려 요즘 올린 쇼츠가 안 보인다 (11-08 엉클 8위 123만 ↔ 레몬쇼츠 55만)
@@ -355,20 +355,25 @@ def judge(w, rec, now):
 
 
 def scene_step(st, works, now, minutes, log):
-    """수요·경쟁에 쓰이는 큰 영상(50만+, 또는 사흘 안 10만+) 중 아직 그림으로 안 본 것을 조회수 큰 순서로 minutes 동안 본다"""
+    """수요·경쟁에 쓰이는 영상 중 아직 그림으로 안 본 것을 조회수 큰 순서로 minutes 동안 본다.
+       수요: 50만+, 또는 사흘 안 10만+. 경쟁(11-14): 수요가 있는 작품(남의 100만+ 1편↑)의 최근 30일 1만+ 영상 —
+       친애하는 X: 30일 27편이 화보·인물·비하인드라 장면 쇼츠 경쟁은 없는데 피함으로 나왔음. 수요 없는 작품은 어차피 보류라 안 봄"""
     todo, keep = {}, set()
     for w in works:
         rec = st["works"].get(w["i"])
         if not rec:
             continue
         have = {v[0] for v in rec["v"]}
-        for v in [v for v in rec["v"] if not v[6]] + [v for v in MERGE.get(w["i"], []) if v[0] not in have]:
+        rows = [v for v in rec["v"] if not v[6]] + [v for v in MERGE.get(w["i"], []) if v[0] not in have]
+        dem = any(v[4] >= R["big"] for v in rows)
+        for v in rows:
             keep.add(v[0])
             e = SCENE.get(v[0])
             if v[0] in todo or (e and not (e[1] and (len(e) < 4 or e[3] < scene.VER))):
                 continue  # 이미 봤고, 옛 판에서 장면 아님이던 것만 새 판으로 다시 봄
             age = age_days(v[5], now)
-            if (v[4] >= R["mid"] or (age is not None and age <= R["hot_days"] and v[4] >= R["hot_views"])) and not not_scene(v, w):
+            comp = dem and age is not None and age <= E["comp_days"] and v[4] >= E.get("flop_views", 10000)
+            if (v[4] >= R["mid"] or comp or (age is not None and age <= R["hot_days"] and v[4] >= R["hot_views"])) and not not_scene(v, w):
                 todo[v[0]] = (v, w)
     for k in [k for k in SCENE if k not in keep]:  # 어느 작품에도 없는 영상은 지움 (다시 나오면 다시 봄)
         del SCENE[k]
@@ -443,7 +448,8 @@ def entry(j, timing):
     comp = cp.get("s", 0)
     pen = {"높음": 15, "방송": 15, "중간": 5}.get(j.get("risk"), 0)
     s = round(0.4 * dem + 0.2 * tmp + 0.4 * (100 - comp) - pen, 1)
-    c30 = f"최근 30일 찾은 경쟁 최소 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편" + (f"(1주 넘게 1만 못 넘은 {cp['flop']}편은 뺌)" if cp.get("flop") else "")
+    out_ = [f"1주 넘게 1만 못 넘은 {cp['flop']}편" if cp.get("flop") else "", f"장면 아닌 {cp['nosc']}편" if cp.get("nosc") else ""]
+    c30 = f"최근 30일 찾은 경쟁 최소 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편" + (f"({' · '.join(x for x in out_ if x)}은 뺌)" if any(out_) else "")
     demand = j.get("n100", 0) >= 1 or j.get("n50", 0) >= 2
     popped = bool(j.get("hot")) or bool(hows) or cp.get("m30", 0) >= R["big"]
     if j["st"] == "쇼츠 거의 없음":
