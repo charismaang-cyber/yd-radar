@@ -112,6 +112,10 @@ td.n{text-align:right}
 tbody tr{cursor:pointer}
 tbody tr:hover td{background:rgba(127,110,190,.07)}
 td .w{font-weight:700}
+/* 11-14 «지금 들어가기 좋은 것» 결 고르기 */
+.tgbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;font-size:12.5px;font-weight:700;color:var(--ink2)}
+.tgbar select{flex:0 1 260px;min-width:160px;margin-left:6px;cursor:pointer}
+.tgbar .m{font-weight:500;color:var(--ink3)}
 /* 11-11 작품 전체 표가 2,045px 라 오른쪽이 잘림 → 긴 글자 칸은 두 줄로 접고, 숫자 칸 제목도 접어서 한 화면에 */
 #tbl th,#tbl td{padding:8px 6px}
 #tbl th{white-space:normal;line-height:1.3;vertical-align:bottom}
@@ -328,7 +332,7 @@ td .w{font-weight:700}
     </section>
 
     <div class="sec-h" id="today"><div><span class="eyebrow">ENTER NOW</span><h2>지금 들어가기 좋은 것<em id="cToday"></em></h2></div><div class="at">꿀통·심정지 재진입 · 수요(100만+ 많은 구간) → GO·차선 → 정답지 편수 순 · 피함은 맨 아래에 접어 둠</div></div>
-    <section class="card panel sparkle"><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button><button class="more hidden" id="todayAvBtn"></button><div class="cards hidden" id="todayAv" style="margin-top:14px"></div><button class="more hidden" id="todayAvMore">더 보기</button></section>
+    <section class="card panel sparkle"><div class="tgbar"><label>결 <select id="todayG" class="search"></select></label><span class="m">채널 결 하나만 보려면 고르세요 · 고른 결은 기억해요</span></div><div class="cards" id="todayList"></div><button class="more hidden" id="todayMore">더 보기</button><button class="more hidden" id="todayAvBtn"></button><div class="cards hidden" id="todayAv" style="margin-top:14px"></div><button class="more hidden" id="todayAvMore">더 보기</button></section>
 
     <div class="sec-h" id="entry"><div><span class="eyebrow">ENTRY SCORE</span><h2>진입 성적표<em id="cEntry"></em></h2></div><div class="at">최근 30일 같은 작품 만든 채널 수가 적을수록 기회 · 100만이어도 식었으면 다시 만들 자리</div></div>
     <section class="card panel"><div class="bar" id="enChips"></div><div class="ens" id="enList"></div><button class="more hidden" id="enMore">더 보기</button></section>
@@ -456,7 +460,7 @@ const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span cl
 
 let D = null, W = {}, opt = {noBc:false, noRisk:false, noAni:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
-const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({noBc:opt.noBc,noRisk:opt.noRisk,noAni:opt.noAni,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP})); }catch(e){} };
+const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({noBc:opt.noBc,noRisk:opt.noRisk,noAni:opt.noAni,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP,todayG:opt.todayG})); }catch(e){} };
 const vis = w => (!opt.noBc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.noAni || w.k!=="애니") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
 const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
 
@@ -682,19 +686,26 @@ function card(w){
     ${w.ans?`<div class="why">정답지: ${esc(w.ans.ch)} (100만+ ${w.ans.n})</div>`:""}</div></button>`;
 }
 let todayN = 12, avN = 12, avOpen = false;
-function drawToday(good, avoid){
-  $("#cToday").textContent = good.length;
-  $("#todayList").innerHTML = good.length ? good.slice(0, todayN).map(card).join("") : `<div class="empty">아직 없어요. 작품을 다 재면(첫날 몇 시간) 채워져요.</div>`;
+function drawToday(good0, avoid0){
+  // 결 고르기: 꿀통·심정지 재진입 중 피함 아닌 것의 결별 편수 (많은 순)
+  const gc = {}; good0.forEach(w => gc[w.g] = (gc[w.g]||0) + 1); avoid0.forEach(w => { if(!(w.g in gc)) gc[w.g] = 0; });
+  if(opt.todayG && !(opt.todayG in gc)) gc[opt.todayG] = 0;
+  $("#todayG").innerHTML = `<option value="">전체 결 (${good0.length})</option>` + Object.entries(gc).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]))
+    .map(([g,n]) => `<option value="${esc(g)}"${g===opt.todayG?" selected":""}>${esc(g)} (${n})</option>`).join("");
+  $("#todayG").onchange = e => { opt.todayG = e.target.value; saveOpt(); todayN = 12; avN = 12; drawToday(good0, avoid0); };
+  const gOk = w => !opt.todayG || w.g===opt.todayG, good = good0.filter(gOk), avoid = avoid0.filter(gOk);
+  $("#cToday").textContent = opt.todayG ? `${good.length}/${good0.length}` : good.length;
+  $("#todayList").innerHTML = good.length ? good.slice(0, todayN).map(card).join("") : opt.todayG ? `<div class="empty">«${esc(opt.todayG)}» 결엔 지금 꿀통·심정지 재진입이면서 피함 아닌 작품이 없어요. 결 지도에서 이 결의 GO·차선을 보세요.</div>` : `<div class="empty">아직 없어요. 작품을 다 재면(첫날 몇 시간) 채워져요.</div>`;
   $("#todayMore").classList.toggle("hidden", good.length <= todayN);
-  $("#todayMore").onclick = () => { todayN += 12; drawToday(good, avoid); };
+  $("#todayMore").onclick = () => { todayN += 12; drawToday(good0, avoid0); };
   // 피함은 목록에서 빼되 접어 둬서 볼 수는 있게
   $("#todayAvBtn").classList.toggle("hidden", !avoid.length);
   $("#todayAvBtn").textContent = avOpen ? `피함 ${avoid.length}편 접기` : `피함 ${avoid.length}편 보기 (붐비거나 저작권 높은 작품)`;
-  $("#todayAvBtn").onclick = () => { avOpen = !avOpen; drawToday(good, avoid); };
+  $("#todayAvBtn").onclick = () => { avOpen = !avOpen; drawToday(good0, avoid0); };
   $("#todayAv").classList.toggle("hidden", !avOpen);
   $("#todayAv").innerHTML = avOpen ? avoid.slice(0, avN).map(card).join("") : "";
   $("#todayAvMore").classList.toggle("hidden", !avOpen || avoid.length <= avN);
-  $("#todayAvMore").onclick = () => { avN += 12; drawToday(good, avoid); };
+  $("#todayAvMore").onclick = () => { avN += 12; drawToday(good0, avoid0); };
   bind();
 }
 // 이어서 볼 연관작: 같은 결에서 지금 들어갈 만한 것(GO·차선)만 진입 판정 좋은 순(GO→차선, 점수순) — 보류·피함은 뺀다(결 지도 «들어갈 만한 것만»과 같은 기준), 위 필터(빼기·구독)도 따른다
