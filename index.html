@@ -826,6 +826,7 @@ function openW(i){
       <div><span>최근 30일 경쟁 (최소)</span><b>${c.ch??0}곳 ${c.n??0}편</b></div><div><span>30일 최고</span><b>${fmt(c.m30||null)}</b></div></div>
     <div class="cmp">${esc(e.why||"")}${(e.how||[]).length?"<br>때: "+e.how.map(esc).join(" · "):""}${c.n?`<br>1위 몫 ${c.share}% · 지난 7일 ${c.r7}편${c.surge?" · 지난주 급증":""} · 검색과 채널 장부에서 찾은 만큼만 센 최소값이라 실제는 더 많을 수 있음`:""}</div>
     ${(c.riv||[]).length?`<div class="h5">최근 30일 경쟁 채널</div><div class="riv">${c.riv.map(r => `<a href="https://www.youtube.com/channel/${esc(r.cid)}/shorts" target="_blank" rel="noopener">${esc(r.ch)}</a><span>${r.n}편</span><span>최고 ${fmt(r.v)}</span>`).join("")}</div>`:""}
+    ${c.flop||(c.cool||[]).length?`<div class="m" style="margin-top:6px;color:var(--ink3);line-height:1.6">${c.flop?`최근 30일에 찾은 ${c.all}편 중 <b>1주 넘게 1만도 못 넘은 ${c.flop}편</b>(안 터진 영상)은 경쟁에서 뺐어요.`:""}${(c.cool||[]).length?` <b>센 채널(${c.cool.map(esc).join(", ")})도 최근 1주 넘게 5만 미만</b> — 작품이 식었을 수 있어요.`:""}</div>`:""}
     ${newBlock(w)}
     ${w.probe ? addForm(w) : ""}
     ${mkForm(w)}

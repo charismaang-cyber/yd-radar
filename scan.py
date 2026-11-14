@@ -24,6 +24,8 @@ CLIP_CH = set()
 # 장면 판정(scene.py): 영상 id → [장면 점수, 장면아님 0/1, 채널id]. state.enc.json 의 scene 에 이어 쌓고 회차마다 새 큰 영상만 그림으로 본다.
 # 11-08 설계자 수요 620만이 강동원 예능 화면 → 장면 아닌 영상은 수요·경쟁에서 뺀다. 장부(ledger.py)가 judge 를 부를 땐 비어 있어 안 거른다.
 SCENE, BAD_CH = {}, set()
+# 100만+ 쇼츠를 낸 적 있는 채널(공식 빼고) — 경쟁에서 «센 채널도 최근 안 터짐 = 작품이 식음» 신호로 씀. main 에서 채움, 장부가 judge 를 부를 땐 비어 있음
+STRONG_CH = set()
 KST = timezone(timedelta(hours=9))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
 R, RUN, E = CFG["rule"], CFG["run"], CFG["entry"]
@@ -397,19 +399,30 @@ def scene_step(st, works, now, minutes, log):
 
 def compete(vs):
     """경쟁강도(아모르 꿀통레이더 STEP 4): 최근 30일에 남이 올린 쇼츠 — 채널 수·편수·1위 몫·지난주 급증.
-       검색·최근 업로드 표본이라 실제보다 적게 잡힐 수 있다(하한)."""
+       검색·최근 업로드 표본이라 실제보다 적게 잡힐 수 있다(하한).
+       11-14: 올린 지 young_days(7일) 넘었는데 flop_views(1만)도 못 넘은 «안 터진 영상»은 경쟁에서 뺀다
+       (사용자: 남의 최고 400만인데 최근 올린 게 2천 회면 안 올린 거나 마찬가지). 7일 안 된 영상은 아직 클 수 있어 센다.
+       대신 센 채널(STRONG_CH, 100만+ 낸 적 있음)이 올렸는데 1주 넘게 cool_views(5만)도 못 넘었으면 «식음» 신호(cool)."""
     days, wk = E["comp_days"], E["surge_days"]
+    young, flopv, coolv = E.get("young_days", 7), E.get("flop_views", 10000), E.get("cool_views", 50000)
     r30 = [v for v in vs if v[7] is not None and v[7] <= days]
+    flop = [v for v in r30 if v[7] >= young and v[4] < flopv]
+    real = [v for v in r30 if not (v[7] >= young and v[4] < flopv)]
     by, best, names = Counter(), {}, {}
-    for v in r30:
+    for v in real:
         by[v[3]] += 1; best[v[3]] = max(best.get(v[3], 0), v[4]); names[v[3]] = v[2]
-    r7 = sum(v[7] <= wk for v in r30)
-    prior = (len(r30) - r7) * wk / (days - wk)  # 이전 23일을 한 주 몫으로
+    r7 = sum(v[7] <= wk for v in real)
+    prior = (len(real) - r7) * wk / (days - wk)  # 이전 23일을 한 주 몫으로
     surge = r7 >= 2 and r7 > 2 * prior
-    score = min(100, E["w_channel"] * len(by) + E["w_post"] * len(r30) + (E["w_surge"] if surge else 0))
-    return {"s": score, "ch": len(by), "n": len(r30), "r7": r7, "surge": surge,
-            "share": round(100 * by.most_common(1)[0][1] / len(r30)) if r30 else 0,
+    score = min(100, E["w_channel"] * len(by) + E["w_post"] * len(real) + (E["w_surge"] if surge else 0))
+    sb, sn = {}, {}
+    for v in r30:
+        if v[3] in STRONG_CH and v[7] >= young:
+            sb[v[3]] = max(sb.get(v[3], 0), v[4]); sn[v[3]] = v[2]
+    return {"s": score, "ch": len(by), "n": len(real), "r7": r7, "surge": surge,
+            "share": round(100 * by.most_common(1)[0][1] / len(real)) if real else 0,
             "m30": max((v[4] for v in r30), default=0),
+            "all": len(r30), "flop": len(flop), "cool": [sn[c] for c, b in sb.items() if b < coolv][:2],
             "riv": [{"ch": names[c], "cid": c, "n": n, "v": best[c]} for c, n in by.most_common(5)]}
 
 
@@ -430,7 +443,7 @@ def entry(j, timing):
     comp = cp.get("s", 0)
     pen = {"높음": 15, "방송": 15, "중간": 5}.get(j.get("risk"), 0)
     s = round(0.4 * dem + 0.2 * tmp + 0.4 * (100 - comp) - pen, 1)
-    c30 = f"최근 30일 찾은 경쟁 최소 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편"
+    c30 = f"최근 30일 찾은 경쟁 최소 {cp.get('ch', 0)}곳·{cp.get('n', 0)}편" + (f"(1주 넘게 1만 못 넘은 {cp['flop']}편은 뺌)" if cp.get("flop") else "")
     demand = j.get("n100", 0) >= 1 or j.get("n50", 0) >= 2
     popped = bool(j.get("hot")) or bool(hows) or cp.get("m30", 0) >= R["big"]
     if j["st"] == "쇼츠 거의 없음":
@@ -447,6 +460,8 @@ def entry(j, timing):
         v, why = "GO", "막 튐 · " + " · ".join((hows or [f"30일 최고 {fmt_v(cp.get('m30', 0))}"])[:2]) + f" · 경쟁 최소 {cp.get('ch', 0)}곳 {cp.get('n', 0)}편"
     else:
         v, why = "차선", f"{c30} · 경쟁강도 {comp}"
+    if v == "GO" and why.startswith("블루오션") and cp.get("cool"):  # 빈자리처럼 보여도 센 채널이 최근 해 봤는데 안 터졌으면 작품이 식었을 수 있음
+        v, why = "차선", f"{c30} · 센 채널({', '.join(cp['cool'])})도 최근 1주 넘게 5만 미만 — 식었을 수 있음"
     return {"v": v, "s": s, "dem": round(dem), "tmp": round(tmp), "cmp": comp, "why": why, "how": hows}
 
 
@@ -754,6 +769,11 @@ def main():
             log(f"수요 채널 기준: 영화 채널 {len(clip)}곳" + ("" if CLIP_CH else " → 너무 적어서 안 씀"))
         except Exception as e:
             log(f"수요 채널 기준 못 풂 → 안 거름 ({e})")
+    for i, rec in st["works"].items():  # 센 채널: 남의 100만+ 쇼츠를 낸 적 있는 채널 (공식 빼고) — 장부(MERGE)까지 읽은 뒤에
+        for v in list(rec.get("v", [])) + list(MERGE.get(i, [])):
+            if not (len(v) > 6 and v[6]) and v[4] >= R["big"] and v[3]:
+                STRONG_CH.add(v[3])
+    log(f"센 채널(남의 100만+ 낸 적 있음) {len(STRONG_CH)}곳")
     st.setdefault("err", [])
     now, today = now_min(), kst(now_min()).date().isoformat()
     AC = CFG.get("actors")

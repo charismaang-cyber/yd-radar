@@ -78,7 +78,7 @@
                "min_top": 500000, "max_works": 5000, "skip": ["체포하겠어", "너에게 닿기를", "꿈빛 파티시엘", "하늬바람", "데드풀", "별난 가족", "아이들..."], "anime_from_year": 1960, "anime_minutes": 6, "drama_from_year": 1980, "drama_minutes": 3, "anime_trees": ["일본의 텔레비전 애니메이션", "대한민국의 텔레비전 애니메이션", "미국의 텔레비전 애니메이션", "일본의 오리지널 애니메이션"],
                "_설명": "위키백과 한국 영화(from_year~작년)·OTT 오리지널 드라마를 후보로, #제목 쇼츠 화면에서 min_top 넘는 쇼츠가 있으면 작품으로 올림(최대 max_works)"},
   "entry": {"comp_days": 30, "surge_days": 7, "w_channel": 5, "w_post": 3, "w_surge": 10,
-            "blue_max_ch": 1, "blue_max_posts": 3, "go_max_comp": 35, "avoid_comp": 60,
+            "blue_max_ch": 1, "blue_max_posts": 3, "go_max_comp": 35, "avoid_comp": 60, "flop_views": 10000, "young_days": 7, "cool_views": 50000,
             "rise_days": 30, "rise_views": 100000, "rise_max": 150,
             "_설명": "아모르 천상계영드 3기(11-01) 꿀통레이더의 진입 판정을 우리 자료로. 경쟁강도 = 최근 comp_days일 남의 쇼츠 채널 수×w_channel + 편수×w_post (+지난주 급증 w_surge), 100 만점. GO = 수요 있음 + (블루오션: 30일 채널 blue_max_ch곳·blue_max_posts편 이하 | 막 튐: 3일 10만+·배우 타이밍 제때·시즌·트렌드·30일 100만+ 이면서 경쟁강도 go_max_comp 미만). 피함 = 경쟁강도 avoid_comp 이상·저작권 높음·방송사·쇼츠 5개 미만"},
   "ott": {"minutes": 3, "refresh_days": 14,
