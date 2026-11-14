@@ -322,6 +322,8 @@ td .w{font-weight:700}
 
     <section class="card panel">
       <div class="bar">
+        <button class="chip" id="onlySer" title="방송·OTT·미드·TV 애니 — 회차가 많아 한 작품으로 여러 편 만들 수 있어요">시리즈만</button>
+        <button class="chip" id="onlyFilm" title="한국 영화·외화·애니 영화 — 한 편이라 만들 거리가 적어요">영화만</button>
         <button class="chip" id="noBc">방송 빼기</button>
         <button class="chip" id="noRisk">저작권 높음 빼기</button>
         <button class="chip" id="noAni">애니 빼기</button>
@@ -458,10 +460,12 @@ const ottTag = w => { const z = ott0(w); return z ? `<span class="tg ott0" title
 const ottLine = w => { const z = ott0(w); return z ? z[1] + (z===OTT0.rent ? `: ${w.ottr.join(", ")}` : "") : w.ott.join(", "); };
 const tagsOf = w => enTag(w)+" "+stTag(w.st)+" "+rkTag(w)+(w.beginner?' <span class="tg beg" title="#해시태그 동영상 1,000개 미만 — 라필 책 초보 기준">초보 OK</span>':"")+(w.issue?` <span class="tg iss" title="${esc(w.issue)}">이슈</span>`:"")+(w.act?` <span class="tg act" title="${esc(w.act.join(" / "))}">배우 타이밍</span>`:"")+(w.auto==="disc"?' <span class="tg disc" title="위키백과 한국 영화·OTT 드라마 후보 중 #제목 쇼츠 화면에 50만+ 쇼츠가 있어 저절로 올라온 작품 (결은 위키백과 분류로 짐작)">자동 발굴</span>':"")+" "+ottTag(w);
 
-let D = null, W = {}, opt = {noBc:false, noRisk:false, noAni:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
+let D = null, W = {}, opt = {form:"", noBc:false, noRisk:false, noAni:false, myOtt:[], q:"", side:"all", good:false, sort:"st", asc:true};
 try{ Object.assign(opt, JSON.parse(localStorage.getItem("yd_opt")||"{}")); }catch(e){}
-const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({noBc:opt.noBc,noRisk:opt.noRisk,noAni:opt.noAni,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP,todayG:opt.todayG})); }catch(e){} };
-const vis = w => (!opt.noBc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.noAni || w.k!=="애니") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
+const saveOpt = () => { try{ localStorage.setItem("yd_opt", JSON.stringify({form:opt.form,noBc:opt.noBc,noRisk:opt.noRisk,noAni:opt.noAni,myOtt:opt.myOtt,side:opt.side,good:opt.good,actGood:opt.actGood,actOtt:opt.actOtt,enV:opt.enV,riseV:opt.riseV,riseNew:opt.riseNew,calP:opt.calP,todayG:opt.todayG})); }catch(e){} };
+// 11-14 영화·시리즈: 시리즈(방송·OTT·미드·TV 애니)는 회차가 많아 한 작품으로 여러 편, 영화(한국 영화·외화·애니 영화)는 한 편
+const formOf = w => (w.k==="영화" || w.k==="외화" || (w.k==="애니" && /애니 영화/.test(w.g||""))) ? "film" : "ser";
+const vis = w => (!opt.form || formOf(w)===opt.form) && (!opt.noBc || w.k!=="방송") && (!opt.noRisk || w.risk!=="높음") && (!opt.noAni || w.k!=="애니") && (!(opt.myOtt||[]).length || (w.ott||[]).some(s => opt.myOtt.includes(s)));
 const byGood = (a,b) => RANK[a.st]-RANK[b.st] || RISK[a.risk]-RISK[b.risk] || (b.n100||0)-(a.n100||0) || ((b.top||{}).v||0)-((a.top||{}).v||0);
 
 // ── 병행 운행: 검색 + 채널 장부를 합친 새 숫자 (ledger.py). 없거나 못 풀어도 옛 화면은 그대로 ──
@@ -545,6 +549,9 @@ function show(d){
   $("#todayDate").textContent = d.at.slice(0,10);
   $("#noBc").classList.toggle("on", opt.noBc); $("#noRisk").classList.toggle("on", opt.noRisk); $("#noAni").classList.toggle("on", opt.noAni);
   $("#noBc").onclick = () => { opt.noBc = !opt.noBc; saveOpt(); show(D); };
+  $("#onlySer").classList.toggle("on", opt.form==="ser"); $("#onlyFilm").classList.toggle("on", opt.form==="film");
+  $("#onlySer").onclick = () => { opt.form = opt.form==="ser" ? "" : "ser"; saveOpt(); show(D); };
+  $("#onlyFilm").onclick = () => { opt.form = opt.form==="film" ? "" : "film"; saveOpt(); show(D); };
   $("#noRisk").onclick = () => { opt.noRisk = !opt.noRisk; saveOpt(); show(D); };
   $("#noAni").onclick = () => { opt.noAni = !opt.noAni; saveOpt(); show(D); };
   $("#ottChips").innerHTML = `<span class="m" style="align-self:center;margin-left:8px;color:var(--ink3)" title="고른 서비스 중 어디든 있는 작품만 보여요. 더 고르면 작품이 늘어나고, 아무것도 안 고르면 전부 보여요 (저스트워치·키노라이츠 기준)">이 서비스에 있는 것만 보기</span>` + OTTS.map(s => `<button class="chip ${(opt.myOtt||[]).includes(s)?"on":""}" data-ott="${esc(s)}">${esc(s)}</button>`).join("");
@@ -749,10 +756,15 @@ function drawMap(){
   document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { opt.side = b.dataset.side; saveOpt(); drawMap(); });
   $("#goodOnly").onclick = () => { opt.good = !opt.good; saveOpt(); drawMap(); };
   // 진입하기 좋은 순서: 결 안에서는 GO → 차선 → 보류 → 피함(같은 판정은 점수 높은 순), 결 카드는 GO 많은 결부터
-  const cards = D.gyeol.filter(g => opt.side==="all" || g.side===opt.side).map(g => {
+  // 11-14 결이 안 정해진 작품(기타(자동)·배우 타이밍)은 결 카드가 없어 GO 31편이 결 지도에 안 보였음 → 맨 뒤에 따로 카드
+  const inMap = new Set(D.gyeol.flatMap(g => g.ids)), extra = {};
+  D.works.forEach(w => { if(!inMap.has(w.i)) (extra[w.g||"결 없음"] = extra[w.g||"결 없음"] || []).push(w.i); });
+  const groups = D.gyeol.concat(Object.entries(extra).map(([k, ids]) => ({k, side:"공통", ids, pass_:0, loose:true,
+    d: k==="배우 타이밍" ? "곧 새 작품이 나오는 배우의 예전 영화 — 결이 제각각이라 한 편씩 볼 것" : "자동 발굴로 올라왔는데 결이 아직 안 정해진 작품 — 결 채널보다는 한 편씩 볼 것"})));
+  const cards = groups.filter(g => opt.side==="all" || g.side===opt.side).map(g => {
     const all = g.ids.map(i=>W[i]).filter(w => w && vis(w)).sort(byEntry), n = v => all.filter(w => enOf(w).v===v).length;
     return {g, all, ids: opt.good ? all.filter(w => ["GO","차선"].includes(enOf(w).v)) : all, go: n("GO"), cha: n("차선"), bo: n("보류"), pi: n("피함"), best: all.length ? enOf(all[0]).s ?? -999 : -999};
-  }).filter(c => c.ids.length).sort((a,b) => b.go-a.go || b.cha-a.cha || b.best-a.best);
+  }).filter(c => c.ids.length).sort((a,b) => (a.g.loose?1:0)-(b.g.loose?1:0) || b.go-a.go || b.cha-a.cha || b.best-a.best);
   $("#gmap").innerHTML = cards.map(({g, ids, go, cha, bo, pi}) => {
     const lim = gOpen[g.k] ? 99 : 6;
     return `<div class="gc"><h4>${esc(g.k)} <span class="badge">${g.side}</span>${g.pass_>=3?'<span class="tg s-honey" title="라필: 같은 결 3편 이상 → 결 채널로 시작 가능">결 채널 가능</span>':""}</h4>
