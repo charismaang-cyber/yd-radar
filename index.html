@@ -443,7 +443,7 @@ function verdictLine(w){
 const rkTag = w => `<span class="tg r r-${esc(w.risk)}" title="${esc(w.riskwhy)}">${w.risk==="방송"?"방송사":"저작권 "+esc(w.risk)}</span>`;
 // 세로 썸네일(oardefault)이 없으면 404 이거나 120px 회색 그림이 와서, 그땐 hqdefault 로 바꾼다
 const thumb = (id, label) => id ? `<div class="th"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${esc(id)}/oardefault.jpg" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'" onload="if(this.naturalWidth<=120&&!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${esc(id)}/hqdefault.jpg'}">${label?`<b>${label}</b>`:""}</div>` : `<div class="th"></div>`;
-const OTTS = ["넷플릭스","디즈니+","티빙","왓챠","웨이브"];
+const OTTS = ["넷플릭스","디즈니+","티빙","왓챠","웨이브","쿠팡플레이"];
 // 시청처: 저스트워치 → (구독이 없으면) 키노라이츠 → (한국 영화면) 한국영상자료원 유튜브 순서로 찾는다 (ott.py)
 const OTT0 = {wait:["시청처 확인 중","아직 시청처를 물어보지 않았어요. 30분마다 조금씩 채워져요"],
   miss:["시청처 못 찾음","저스트워치·키노라이츠·한국고전영화 유튜브 어디서도 이 작품을 못 찾았어요. 어디에도 없다는 뜻은 아니에요"],
